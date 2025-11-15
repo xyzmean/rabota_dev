@@ -1,0 +1,112 @@
+-- Миграция 001: Добавление системы настроек, валидации и пожеланий сотрудников
+-- Дата: 2025-11-15
+
+-- 1. Добавление роли сотрудника
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'employee';
+-- Возможные роли: 'manager', 'deputy_manager', 'storekeeper', 'employee'
+
+-- 2. Добавление времени работы в смены
+ALTER TABLE shifts ADD COLUMN IF NOT EXISTS start_time TIME;
+ALTER TABLE shifts ADD COLUMN IF NOT EXISTS end_time TIME;
+
+-- 3. Таблица глобальных настроек приложения
+CREATE TABLE IF NOT EXISTS app_settings (
+    id SERIAL PRIMARY KEY,
+    key VARCHAR(255) UNIQUE NOT NULL, -- Ключ настройки (например: 'theme', 'work_hours_start')
+    value TEXT NOT NULL, -- Значение в JSON формате
+    description TEXT, -- Описание настройки
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 4. Таблица правил валидации графика
+CREATE TABLE IF NOT EXISTS validation_rules (
+    id SERIAL PRIMARY KEY,
+    rule_type VARCHAR(100) NOT NULL, -- Тип правила (max_consecutive_shifts, min_employees_per_shift, etc.)
+    enabled BOOLEAN DEFAULT TRUE, -- Включено ли правило
+    config JSONB NOT NULL, -- Конфигурация правила в JSON
+    applies_to_roles VARCHAR(255)[], -- Массив ролей, к которым применяется правило (null = все)
+    priority INTEGER DEFAULT 0, -- Приоритет правила (для сортировки)
+    description TEXT, -- Описание правила
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 5. Таблица причин для запросов сотрудников
+CREATE TABLE IF NOT EXISTS preference_reasons (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL, -- Название причины (например: "Семейные обстоятельства", "Учеба")
+    priority INTEGER DEFAULT 0, -- Приоритет причины (выше = важнее)
+    color VARCHAR(7), -- Цвет для визуального отображения
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 6. Таблица пожеланий/запросов сотрудников
+CREATE TABLE IF NOT EXISTS employee_preferences (
+    id SERIAL PRIMARY KEY,
+    employee_id VARCHAR(255) REFERENCES employees(id) ON DELETE CASCADE,
+    preference_type VARCHAR(50) NOT NULL, -- 'day_off', 'preferred_shift', 'avoid_shift'
+    target_date DATE, -- Конкретная дата (для разовых запросов)
+    target_shift_id VARCHAR(255) REFERENCES shifts(id) ON DELETE SET NULL, -- ID желаемой/нежелательной смены
+    reason_id INTEGER REFERENCES preference_reasons(id) ON DELETE SET NULL, -- Причина запроса
+    priority INTEGER DEFAULT 0, -- Приоритет запроса (автоматически наследуется от reason_id или задается вручную)
+    status VARCHAR(50) DEFAULT 'pending', -- 'pending', 'approved', 'rejected'
+    notes TEXT, -- Примечание от сотрудника
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Индексы для быстрого поиска
+CREATE INDEX IF NOT EXISTS idx_app_settings_key ON app_settings(key);
+CREATE INDEX IF NOT EXISTS idx_validation_rules_type ON validation_rules(rule_type);
+CREATE INDEX IF NOT EXISTS idx_validation_rules_enabled ON validation_rules(enabled);
+CREATE INDEX IF NOT EXISTS idx_validation_rules_priority ON validation_rules(priority);
+CREATE INDEX IF NOT EXISTS idx_preference_reasons_priority ON preference_reasons(priority);
+CREATE INDEX IF NOT EXISTS idx_employee_preferences_employee ON employee_preferences(employee_id);
+CREATE INDEX IF NOT EXISTS idx_employee_preferences_date ON employee_preferences(target_date);
+CREATE INDEX IF NOT EXISTS idx_employee_preferences_status ON employee_preferences(status);
+CREATE INDEX IF NOT EXISTS idx_employee_preferences_priority ON employee_preferences(priority);
+
+-- Триггеры для автоматического обновления updated_at
+CREATE TRIGGER update_app_settings_updated_at BEFORE UPDATE ON app_settings
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_validation_rules_updated_at BEFORE UPDATE ON validation_rules
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_preference_reasons_updated_at BEFORE UPDATE ON preference_reasons
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_employee_preferences_updated_at BEFORE UPDATE ON employee_preferences
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Вставка дефолтных настроек
+INSERT INTO app_settings (key, value, description) VALUES
+    ('theme', '"light"', 'Тема приложения (light/dark)'),
+    ('work_hours_start', '"09:00"', 'Начало рабочего дня предприятия'),
+    ('work_hours_end', '"22:00"', 'Конец рабочего дня предприятия'),
+    ('default_validation_enabled', 'true', 'Включена ли валидация графика по умолчанию')
+ON CONFLICT (key) DO NOTHING;
+
+-- Вставка дефолтных правил валидации
+INSERT INTO validation_rules (rule_type, enabled, config, applies_to_roles, priority, description) VALUES
+    ('max_consecutive_shifts', true, '{"max_days": 5}', NULL, 1, 'Максимальное количество смен подряд'),
+    ('min_employees_per_shift', true, '{"min_count": 2}', NULL, 2, 'Минимальное количество сотрудников в смене'),
+    ('max_employees_per_shift', true, '{"max_count": 5}', NULL, 3, 'Максимальное количество сотрудников в смене'),
+    ('max_employees_per_shift_type', true, '{"shift_limits": {}}', NULL, 4, 'Максимальное количество людей в конкретной смене в день'),
+    ('required_coverage', true, '{"rules": []}', NULL, 5, 'Обязательное покрытие конкретных часов/дней определенным количеством сотрудников'),
+    ('manager_requirements', true, '{"min_managers_per_day": 1}', '{"manager", "deputy_manager"}', 6, 'Требования к наличию управляющих в графике'),
+    ('max_total_hours', true, '{"max_hours_per_month": 176}', NULL, 7, 'Максимальное количество часов в месяц для всех сотрудников'),
+    ('max_hours_without_managers', true, '{"max_hours_per_month": 176}', '{"employee", "storekeeper"}', 8, 'Максимальное количество часов в месяц для сотрудников (без УМ/ЗУМ)')
+ON CONFLICT DO NOTHING;
+
+-- Вставка дефолтных причин для запросов
+INSERT INTO preference_reasons (name, priority, color, description) VALUES
+    ('Семейные обстоятельства', 100, '#ef4444', 'Важные семейные события и обязательства'),
+    ('Медицинские причины', 90, '#f59e0b', 'Медицинские процедуры и обследования'),
+    ('Учеба', 70, '#3b82f6', 'Занятия, экзамены, защита'),
+    ('Личные дела', 50, '#8b5cf6', 'Личные планы и встречи'),
+    ('Другое', 10, '#6b7280', 'Прочие причины')
+ON CONFLICT DO NOTHING;

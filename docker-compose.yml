@@ -63,7 +63,7 @@ services:
     container_name: rabota_frontend
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "8081:80"  # Изменен порт на 8081 для работы через Nginx reverse proxy
     depends_on:
       - backend
 

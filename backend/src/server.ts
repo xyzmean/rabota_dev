@@ -8,6 +8,10 @@ import { runMigrations } from './db/migrations';
 import employeeRoutes from './routes/employeeRoutes';
 import shiftRoutes from './routes/shiftRoutes';
 import scheduleRoutes from './routes/scheduleRoutes';
+import settingsRoutes from './routes/settingsRoutes';
+import validationRulesRoutes from './routes/validationRulesRoutes';
+import preferencesRoutes from './routes/preferencesRoutes';
+import preferenceReasonsRoutes from './routes/preferenceReasonsRoutes';
 
 // Загрузка переменных окружения
 dotenv.config();
@@ -35,6 +39,10 @@ if (process.env.NODE_ENV === 'development') {
 app.use('/api/employees', employeeRoutes);
 app.use('/api/shifts', shiftRoutes);
 app.use('/api/schedule', scheduleRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/validation-rules', validationRulesRoutes);
+app.use('/api/preferences', preferencesRoutes);
+app.use('/api/preference-reasons', preferenceReasonsRoutes);
 
 // Health check endpoint
 app.get('/health', (req: Request, res: Response) => {
@@ -49,11 +57,15 @@ app.get('/health', (req: Request, res: Response) => {
 app.get('/', (req: Request, res: Response) => {
   res.json({
     message: 'RaboTA API Server',
-    version: '1.0.0',
+    version: '2.1.0',
     endpoints: {
       employees: '/api/employees',
       shifts: '/api/shifts',
       schedule: '/api/schedule',
+      settings: '/api/settings',
+      validationRules: '/api/validation-rules',
+      preferences: '/api/preferences',
+      preferenceReasons: '/api/preference-reasons',
       health: '/health'
     }
   });

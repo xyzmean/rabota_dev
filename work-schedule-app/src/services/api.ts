@@ -1,4 +1,15 @@
-import { Employee, Shift, ScheduleEntry } from '../types';
+import {
+  Employee,
+  Shift,
+  ScheduleEntry,
+  AppSetting,
+  ValidationRule,
+  ValidationRuleInput,
+  EmployeePreference,
+  EmployeePreferenceInput,
+  PreferenceReason,
+  PreferenceReasonInput,
+} from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
@@ -160,6 +171,231 @@ export const scheduleApi = {
       body: JSON.stringify({ entries }),
     });
     return handleResponse<ScheduleEntry[]>(response);
+  },
+};
+
+// === Settings API ===
+
+export const settingsApi = {
+  getAll: async (): Promise<AppSetting[]> => {
+    const response = await fetch(`${API_URL}/settings`);
+    return handleResponse<AppSetting[]>(response);
+  },
+
+  getByKey: async (key: string): Promise<AppSetting> => {
+    const response = await fetch(`${API_URL}/settings/${key}`);
+    return handleResponse<AppSetting>(response);
+  },
+
+  getBulk: async (keys: string[]): Promise<Record<string, any>> => {
+    const response = await fetch(`${API_URL}/settings/bulk?keys=${keys.join(',')}`);
+    return handleResponse<Record<string, any>>(response);
+  },
+
+  create: async (setting: { key: string; value: string; description?: string }): Promise<AppSetting> => {
+    const response = await fetch(`${API_URL}/settings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(setting),
+    });
+    return handleResponse<AppSetting>(response);
+  },
+
+  update: async (key: string, value: string, description?: string): Promise<AppSetting> => {
+    const response = await fetch(`${API_URL}/settings/${key}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ value, description }),
+    });
+    return handleResponse<AppSetting>(response);
+  },
+
+  delete: async (key: string): Promise<void> => {
+    const response = await fetch(`${API_URL}/settings/${key}`, {
+      method: 'DELETE',
+    });
+    return handleResponse<void>(response);
+  },
+};
+
+// === Validation Rules API ===
+
+export const validationRulesApi = {
+  getAll: async (): Promise<ValidationRule[]> => {
+    const response = await fetch(`${API_URL}/validation-rules`);
+    return handleResponse<ValidationRule[]>(response);
+  },
+
+  getEnabled: async (): Promise<ValidationRule[]> => {
+    const response = await fetch(`${API_URL}/validation-rules/enabled`);
+    return handleResponse<ValidationRule[]>(response);
+  },
+
+  getById: async (id: number): Promise<ValidationRule> => {
+    const response = await fetch(`${API_URL}/validation-rules/${id}`);
+    return handleResponse<ValidationRule>(response);
+  },
+
+  create: async (rule: ValidationRuleInput): Promise<ValidationRule> => {
+    const response = await fetch(`${API_URL}/validation-rules`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(rule),
+    });
+    return handleResponse<ValidationRule>(response);
+  },
+
+  update: async (id: number, rule: Partial<ValidationRuleInput>): Promise<ValidationRule> => {
+    const response = await fetch(`${API_URL}/validation-rules/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(rule),
+    });
+    return handleResponse<ValidationRule>(response);
+  },
+
+  toggle: async (id: number): Promise<ValidationRule> => {
+    const response = await fetch(`${API_URL}/validation-rules/${id}/toggle`, {
+      method: 'PATCH',
+    });
+    return handleResponse<ValidationRule>(response);
+  },
+
+  delete: async (id: number): Promise<void> => {
+    const response = await fetch(`${API_URL}/validation-rules/${id}`, {
+      method: 'DELETE',
+    });
+    return handleResponse<void>(response);
+  },
+
+  reorder: async (orderedIds: number[]): Promise<ValidationRule[]> => {
+    const response = await fetch(`${API_URL}/validation-rules/reorder`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderedIds }),
+    });
+    return handleResponse<ValidationRule[]>(response);
+  },
+};
+
+// === Employee Preferences API ===
+
+export const preferencesApi = {
+  getAll: async (filters?: {
+    employeeId?: string;
+    status?: string;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<EmployeePreference[]> => {
+    let url = `${API_URL}/preferences`;
+    const params = new URLSearchParams();
+
+    if (filters) {
+      if (filters.employeeId) params.append('employeeId', filters.employeeId);
+      if (filters.status) params.append('status', filters.status);
+      if (filters.startDate) params.append('startDate', filters.startDate);
+      if (filters.endDate) params.append('endDate', filters.endDate);
+    }
+
+    const queryString = params.toString();
+    if (queryString) {
+      url += `?${queryString}`;
+    }
+
+    const response = await fetch(url);
+    return handleResponse<EmployeePreference[]>(response);
+  },
+
+  getById: async (id: number): Promise<EmployeePreference> => {
+    const response = await fetch(`${API_URL}/preferences/${id}`);
+    return handleResponse<EmployeePreference>(response);
+  },
+
+  getByEmployee: async (employeeId: string): Promise<EmployeePreference[]> => {
+    const response = await fetch(`${API_URL}/preferences/employee/${employeeId}`);
+    return handleResponse<EmployeePreference[]>(response);
+  },
+
+  create: async (preference: EmployeePreferenceInput): Promise<EmployeePreference> => {
+    const response = await fetch(`${API_URL}/preferences`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(preference),
+    });
+    return handleResponse<EmployeePreference>(response);
+  },
+
+  update: async (id: number, preference: Partial<EmployeePreferenceInput>): Promise<EmployeePreference> => {
+    const response = await fetch(`${API_URL}/preferences/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(preference),
+    });
+    return handleResponse<EmployeePreference>(response);
+  },
+
+  updateStatus: async (id: number, status: 'pending' | 'approved' | 'rejected'): Promise<EmployeePreference> => {
+    const response = await fetch(`${API_URL}/preferences/${id}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+    return handleResponse<EmployeePreference>(response);
+  },
+
+  delete: async (id: number): Promise<void> => {
+    const response = await fetch(`${API_URL}/preferences/${id}`, {
+      method: 'DELETE',
+    });
+    return handleResponse<void>(response);
+  },
+};
+
+// === Preference Reasons API ===
+
+export const preferenceReasonsApi = {
+  getAll: async (): Promise<PreferenceReason[]> => {
+    const response = await fetch(`${API_URL}/preference-reasons`);
+    return handleResponse<PreferenceReason[]>(response);
+  },
+
+  getById: async (id: number): Promise<PreferenceReason> => {
+    const response = await fetch(`${API_URL}/preference-reasons/${id}`);
+    return handleResponse<PreferenceReason>(response);
+  },
+
+  create: async (reason: PreferenceReasonInput): Promise<PreferenceReason> => {
+    const response = await fetch(`${API_URL}/preference-reasons`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(reason),
+    });
+    return handleResponse<PreferenceReason>(response);
+  },
+
+  update: async (id: number, reason: Partial<PreferenceReasonInput>): Promise<PreferenceReason> => {
+    const response = await fetch(`${API_URL}/preference-reasons/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(reason),
+    });
+    return handleResponse<PreferenceReason>(response);
+  },
+
+  delete: async (id: number): Promise<void> => {
+    const response = await fetch(`${API_URL}/preference-reasons/${id}`, {
+      method: 'DELETE',
+    });
+    return handleResponse<void>(response);
+  },
+
+  reorder: async (orderedIds: number[]): Promise<PreferenceReason[]> => {
+    const response = await fetch(`${API_URL}/preference-reasons/reorder`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderedIds }),
+    });
+    return handleResponse<PreferenceReason[]>(response);
   },
 };
 

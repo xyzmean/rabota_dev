@@ -11,10 +11,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Текущие модули
 
 - **График работы** (`/schedule`) - Система управления рабочими сменами и сотрудниками
-  - Управление сотрудниками
-  - Создание и редактирование смен
+  - Управление сотрудниками с ролями (УМ/ЗУМ/Кладовщик/Сотрудник)
+  - Создание и редактирование смен с временными рамками
   - Визуальный календарь с назначением смен
+  - Система правил валидации графика с приоритетами
+  - Запросы сотрудников на смены/выходные с приоритетами
   - Хранение данных в PostgreSQL через REST API
+
+- **Настройки** (`/settings`) - Глобальные настройки приложения
+  - Переключение темной/светлой темы
+  - Управление правилами валидации графика (drag-and-drop для приоритетов)
+  - Управление причинами для запросов сотрудников
+  - Настройка часов работы предприятия и смен
 
 ## Technology Stack
 
@@ -60,16 +68,26 @@ RaboTA/
 │   │   ├── controllers/       # Контроллеры API
 │   │   │   ├── employeeController.ts
 │   │   │   ├── shiftController.ts
-│   │   │   └── scheduleController.ts
+│   │   │   ├── scheduleController.ts
+│   │   │   ├── settingsController.ts
+│   │   │   ├── validationRulesController.ts
+│   │   │   ├── preferencesController.ts
+│   │   │   └── preferenceReasonsController.ts
 │   │   ├── db/               # База данных
 │   │   │   ├── schema.sql    # SQL схема
-│   │   │   └── migrations.ts # Миграции
+│   │   │   ├── migrations.ts # Система миграций
+│   │   │   └── migrations/   # Файлы миграций
+│   │   │       └── 001_add_settings_and_validation.sql
 │   │   ├── models/           # Модели данных
 │   │   │   └── types.ts      # TypeScript типы
 │   │   ├── routes/           # API маршруты
 │   │   │   ├── employeeRoutes.ts
 │   │   │   ├── shiftRoutes.ts
-│   │   │   └── scheduleRoutes.ts
+│   │   │   ├── scheduleRoutes.ts
+│   │   │   ├── settingsRoutes.ts
+│   │   │   ├── validationRulesRoutes.ts
+│   │   │   ├── preferencesRoutes.ts
+│   │   │   └── preferenceReasonsRoutes.ts
 │   │   └── server.ts         # Точка входа сервера
 │   ├── package.json          # Зависимости backend
 │   ├── tsconfig.json         # TypeScript конфигурация
@@ -80,10 +98,15 @@ RaboTA/
 │   │   ├── components/       # Переиспользуемые компоненты
 │   │   │   ├── EmployeeManager.tsx
 │   │   │   ├── ScheduleCalendar.tsx
-│   │   │   └── ShiftManager.tsx
+│   │   │   ├── ShiftManager.tsx
+│   │   │   ├── ThemeToggle.tsx
+│   │   │   └── DraggableList.tsx
+│   │   ├── contexts/         # React contexts
+│   │   │   └── ThemeContext.tsx
 │   │   ├── pages/            # Страницы приложения
 │   │   │   ├── Home.tsx      # Главная страница (/)
-│   │   │   └── Schedule.tsx  # График работы (/schedule)
+│   │   │   ├── Schedule.tsx  # График работы (/schedule)
+│   │   │   └── Settings.tsx  # Настройки (/settings)
 │   │   ├── hooks/            # Custom React hooks
 │   │   │   └── useLocalStorage.ts
 │   │   ├── services/         # API сервисы
@@ -105,7 +128,9 @@ RaboTA/
 │   ├── Dockerfile            # Docker образ для frontend
 │   └── nginx.conf            # Nginx конфигурация
 ├── docker-compose.yml        # Docker Compose конфигурация
+├── nginx-host.conf           # Nginx конфигурация для хост-машины (reverse proxy)
 ├── DEPLOYMENT.md             # Руководство по развертыванию
+├── SUBDOMAIN-SETUP.md        # Руководство по настройке поддомена rabota.yo1nk.ru
 ├── CLAUDE.md                 # Этот файл
 └── .gitignore                # Git ignore правила
 ```
@@ -116,17 +141,23 @@ RaboTA/
 Приложение использует React Router для навигации:
 - `/` - Главная страница с карточками модулей
 - `/schedule` - Модуль управления графиком работы
+- `/settings` - Настройки приложения
 
 ### Data Management
 - **PostgreSQL Database** - Серверное хранилище данных
 - **REST API** - Backend API для взаимодействия с БД
 - **State Management** - Используется встроенный React state (useState)
+- **Theme System** - ThemeContext для управления темной/светлой темой
 - **Legacy**: Local Storage (в процессе миграции на API)
 
 ### Database Schema
-- **employees** - Сотрудники (id, name, exclude_from_hours)
-- **shifts** - Смены (id, name, abbreviation, color, hours, is_default)
+- **employees** - Сотрудники (id, name, role, exclude_from_hours)
+- **shifts** - Смены (id, name, abbreviation, color, hours, start_time, end_time, is_default)
 - **schedule** - График (id, employee_id, day, month, year, shift_id)
+- **app_settings** - Настройки приложения (id, key, value, description)
+- **validation_rules** - Правила валидации графика (id, rule_type, enabled, config, applies_to_roles, priority, description)
+- **preference_reasons** - Причины для запросов сотрудников (id, name, priority, color, description)
+- **employee_preferences** - Запросы сотрудников (id, employee_id, preference_type, target_date, target_shift_id, reason_id, priority, status, notes)
 
 ### Component Structure
 - **Pages** - Страницы верхнего уровня с роутингом
@@ -211,8 +242,10 @@ docker compose up --build -d
 
 ### Styling
 - Используйте Tailwind CSS классы для стилизации
+- Поддержка темной темы через `dark:` префикс (Tailwind dark mode: 'class')
 - Следуйте существующей цветовой схеме (синий градиент для header)
 - Адаптивный дизайн через Tailwind responsive breakpoints
+- Используйте переходы (transition-colors, transition-shadow) для плавной смены тем
 
 ### TypeScript
 - Все типы должны быть определены в `src/types.ts` или локально в компонентах
@@ -259,6 +292,41 @@ docker compose up --build -d
 - `POST /api/schedule/bulk` - Массовое создание/обновление
 - `POST /api/schedule/delete-by-date` - Удалить по дате и сотруднику
 
+### Settings
+- `GET /api/settings` - Получить все настройки
+- `GET /api/settings/:key` - Получить настройку по ключу
+- `GET /api/settings/bulk?keys=...` - Получить несколько настроек
+- `POST /api/settings` - Создать настройку
+- `PUT /api/settings/:key` - Обновить настройку
+- `DELETE /api/settings/:key` - Удалить настройку
+
+### Validation Rules
+- `GET /api/validation-rules` - Получить все правила
+- `GET /api/validation-rules/enabled` - Получить только включенные правила
+- `GET /api/validation-rules/:id` - Получить правило по ID
+- `POST /api/validation-rules` - Создать правило
+- `PUT /api/validation-rules/:id` - Обновить правило
+- `PATCH /api/validation-rules/:id/toggle` - Включить/выключить правило
+- `POST /api/validation-rules/reorder` - Изменить порядок правил (drag-and-drop)
+- `DELETE /api/validation-rules/:id` - Удалить правило
+
+### Employee Preferences
+- `GET /api/preferences?employeeId=X&status=Y` - Получить все пожелания (с фильтрами)
+- `GET /api/preferences/:id` - Получить пожелание по ID
+- `GET /api/preferences/employee/:employeeId` - Получить пожелания сотрудника
+- `POST /api/preferences` - Создать пожелание
+- `PUT /api/preferences/:id` - Обновить пожелание
+- `PATCH /api/preferences/:id/status` - Обновить статус пожелания
+- `DELETE /api/preferences/:id` - Удалить пожелание
+
+### Preference Reasons
+- `GET /api/preference-reasons` - Получить все причины
+- `GET /api/preference-reasons/:id` - Получить причину по ID
+- `POST /api/preference-reasons` - Создать причину
+- `PUT /api/preference-reasons/:id` - Обновить причину
+- `POST /api/preference-reasons/reorder` - Изменить порядок причин (drag-and-drop)
+- `DELETE /api/preference-reasons/:id` - Удалить причину
+
 ### Health
 - `GET /health` - Проверка состояния сервера
 
@@ -286,11 +354,34 @@ docker compose up --build -d
 
 ## Deployment
 
-Подробная информация по развертыванию доступна в файле `DEPLOYMENT.md`.
+Подробная информация по развертыванию доступна в следующих файлах:
 
-Основные варианты:
-1. **Docker Compose** (рекомендуется) - простое развертывание всех сервисов
-2. **Ручное развертывание** - для большего контроля
+- **[DEPLOYMENT.md](./DEPLOYMENT.md)** - Общее руководство по развертыванию
+  - Docker Compose (рекомендуется)
+  - Ручное развертывание без Docker
+  - Настройка PostgreSQL
+  - Мониторинг и обслуживание
+
+- **[SUBDOMAIN-SETUP.md](./SUBDOMAIN-SETUP.md)** - Развертывание на поддомене rabota.yo1nk.ru
+  - Настройка Nginx reverse proxy
+  - Установка SSL сертификата (Let's Encrypt)
+  - Работа через HTTPS на порту 443
+  - Troubleshooting и безопасность
+
+### Production URL
+Приложение развертывается на: **https://rabota.yo1nk.ru**
+
+### Архитектура Production
+```
+Internet (HTTPS:443)
+    ↓
+Nginx Reverse Proxy (хост-машина)
+    ↓
+    ├─→ Frontend (Docker: localhost:8081)
+    └─→ Backend API (Docker: localhost:3001)
+            ↓
+        PostgreSQL (Docker: localhost:5432)
+```
 
 ## Future Development
 

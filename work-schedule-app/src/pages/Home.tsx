@@ -1,16 +1,28 @@
 import { Link } from 'react-router-dom';
+import { Settings as SettingsIcon } from 'lucide-react';
+import ThemeToggle from '../components/ThemeToggle';
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
       <div className="container mx-auto px-4 py-16">
         <div className="max-w-4xl mx-auto">
           {/* Header */}
-          <div className="text-center mb-12">
-            <h1 className="text-5xl font-bold text-gray-800 mb-4">
+          <div className="text-center mb-12 relative">
+            <div className="absolute top-0 right-0 flex gap-2">
+              <ThemeToggle />
+              <Link
+                to="/settings"
+                className="p-2 rounded-lg bg-white/50 dark:bg-gray-800/50 hover:bg-white/80 dark:hover:bg-gray-800/80 transition-colors"
+                title="Настройки"
+              >
+                <SettingsIcon className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+              </Link>
+            </div>
+            <h1 className="text-5xl font-bold text-gray-800 dark:text-gray-100 mb-4">
               RaboTA
             </h1>
-            <p className="text-xl text-gray-600">
+            <p className="text-xl text-gray-600 dark:text-gray-300">
               Внутренний сайт для управления рабочими процессами
             </p>
           </div>
@@ -20,7 +32,7 @@ export default function Home() {
             {/* Schedule Card */}
             <Link
               to="/schedule"
-              className="bg-white rounded-xl shadow-lg p-8 hover:shadow-xl transition-shadow duration-300 border-2 border-transparent hover:border-indigo-500"
+              className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 hover:shadow-xl transition-shadow duration-300 border-2 border-transparent hover:border-indigo-500"
             >
               <div className="flex items-center mb-4">
                 <div className="bg-indigo-100 p-3 rounded-lg">
@@ -38,17 +50,17 @@ export default function Home() {
                     />
                   </svg>
                 </div>
-                <h2 className="text-2xl font-bold text-gray-800 ml-4">
+                <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 ml-4">
                   График работы
                 </h2>
               </div>
-              <p className="text-gray-600">
+              <p className="text-gray-600 dark:text-gray-300">
                 Управление сотрудниками, создание смен и планирование графика работы
               </p>
             </Link>
 
             {/* Placeholder for future features */}
-            <div className="bg-white rounded-xl shadow-lg p-8 opacity-50 cursor-not-allowed">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 opacity-50 cursor-not-allowed">
               <div className="flex items-center mb-4">
                 <div className="bg-gray-100 p-3 rounded-lg">
                   <svg
@@ -76,12 +88,12 @@ export default function Home() {
           </div>
 
           {/* Quick Stats */}
-          <div className="bg-white rounded-xl shadow-lg p-8">
-            <h3 className="text-xl font-semibold text-gray-800 mb-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8">
+            <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-4">
               Возможности
             </h3>
             <ul className="space-y-3">
-              <li className="flex items-center text-gray-700">
+              <li className="flex items-center text-gray-700 dark:text-gray-300">
                 <svg
                   className="w-5 h-5 text-green-500 mr-3"
                   fill="none"
