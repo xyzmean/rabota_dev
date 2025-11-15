@@ -1,0 +1,107 @@
+import express, { Application, Request, Response } from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import { testConnection } from './config/database';
+import { runMigrations } from './db/migrations';
+
+// Импорт маршрутов
+import employeeRoutes from './routes/employeeRoutes';
+import shiftRoutes from './routes/shiftRoutes';
+import scheduleRoutes from './routes/scheduleRoutes';
+
+// Загрузка переменных окружения
+dotenv.config();
+
+const app: Application = express();
+const PORT = process.env.PORT || 3001;
+
+// Middleware
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  credentials: true
+}));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Логирование запросов в режиме разработки
+if (process.env.NODE_ENV === 'development') {
+  app.use((req: Request, res: Response, next) => {
+    console.log(`${req.method} ${req.path}`);
+    next();
+  });
+}
+
+// API Routes
+app.use('/api/employees', employeeRoutes);
+app.use('/api/shifts', shiftRoutes);
+app.use('/api/schedule', scheduleRoutes);
+
+// Health check endpoint
+app.get('/health', (req: Request, res: Response) => {
+  res.json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
+// Root endpoint
+app.get('/', (req: Request, res: Response) => {
+  res.json({
+    message: 'RaboTA API Server',
+    version: '1.0.0',
+    endpoints: {
+      employees: '/api/employees',
+      shifts: '/api/shifts',
+      schedule: '/api/schedule',
+      health: '/health'
+    }
+  });
+});
+
+// 404 handler
+app.use((req: Request, res: Response) => {
+  res.status(404).json({ error: 'Route not found' });
+});
+
+// Error handler
+app.use((err: Error, req: Request, res: Response, next: any) => {
+  console.error('Server error:', err);
+  res.status(500).json({ error: 'Internal server error' });
+});
+
+// Функция запуска сервера
+const startServer = async () => {
+  try {
+    // Проверка подключения к БД
+    await testConnection();
+
+    // Запуск миграций
+    await runMigrations();
+
+    // Запуск сервера
+    app.listen(PORT, () => {
+      console.log(`\n🚀 Server running on port ${PORT}`);
+      console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`🌐 API URL: http://localhost:${PORT}`);
+      console.log(`💚 Health check: http://localhost:${PORT}/health\n`);
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+// Запуск сервера
+startServer();
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('\nSIGTERM received, shutting down gracefully...');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('\nSIGINT received, shutting down gracefully...');
+  process.exit(0);
+});
