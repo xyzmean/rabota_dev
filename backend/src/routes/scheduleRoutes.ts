@@ -6,7 +6,8 @@ import {
   updateScheduleEntry,
   deleteScheduleEntry,
   deleteScheduleByDateAndEmployee,
-  bulkUpsertSchedule
+  bulkUpsertSchedule,
+  validateScheduleController
 } from '../controllers/scheduleController';
 
 const router = Router();
@@ -16,6 +17,12 @@ const router = Router();
  * @desc    Получить весь график (с опциональными параметрами start_date, end_date)
  */
 router.get('/', getAllSchedule);
+
+/**
+ * @route   GET /api/schedule/validate
+ * @desc    Валидировать график по правилам (требуются параметры month и year)
+ */
+router.get('/validate', validateScheduleController);
 
 /**
  * @route   GET /api/schedule/:id

@@ -11,6 +11,7 @@ import {
   PreferenceReasonInput,
   Role,
   RoleInput,
+  ScheduleValidationResult,
 } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
@@ -176,6 +177,11 @@ export const scheduleApi = {
       body: JSON.stringify({ entries }),
     });
     return handleResponse<ScheduleEntry[]>(response);
+  },
+
+  validate: async (month: number, year: number): Promise<ScheduleValidationResult> => {
+    const response = await fetch(`${API_URL}/schedule/validate?month=${month}&year=${year}`);
+    return handleResponse<ScheduleValidationResult>(response);
   },
 };
 

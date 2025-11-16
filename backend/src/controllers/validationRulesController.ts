@@ -9,6 +9,9 @@ const dbToApi = (dbRow: any): ValidationRule => ({
   enabled: dbRow.enabled,
   config: dbRow.config,
   appliesToRoles: dbRow.applies_to_roles,
+  appliesToEmployees: dbRow.applies_to_employees,
+  enforcementType: dbRow.enforcement_type,
+  customMessage: dbRow.custom_message,
   priority: dbRow.priority,
   description: dbRow.description,
   created_at: dbRow.created_at,
@@ -79,6 +82,9 @@ export const createRule = async (req: Request, res: Response): Promise<void> => 
     enabled = true,
     config,
     appliesToRoles,
+    appliesToEmployees,
+    enforcementType = 'warning',
+    customMessage,
     priority = 0,
     description,
   }: ValidationRuleInput = req.body;
@@ -90,9 +96,9 @@ export const createRule = async (req: Request, res: Response): Promise<void> => 
 
   try {
     const result = await pool.query(
-      `INSERT INTO validation_rules (rule_type, enabled, config, applies_to_roles, priority, description)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [ruleType, enabled, JSON.stringify(config), appliesToRoles, priority, description]
+      `INSERT INTO validation_rules (rule_type, enabled, config, applies_to_roles, applies_to_employees, enforcement_type, custom_message, priority, description)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+      [ruleType, enabled, JSON.stringify(config), appliesToRoles, appliesToEmployees, enforcementType, customMessage, priority, description]
     );
 
     res.status(201).json(dbToApi(result.rows[0]));
@@ -113,6 +119,9 @@ export const updateRule = async (req: Request, res: Response): Promise<void> => 
     enabled,
     config,
     appliesToRoles,
+    appliesToEmployees,
+    enforcementType,
+    customMessage,
     priority,
     description,
   }: Partial<ValidationRuleInput> = req.body;
@@ -138,6 +147,18 @@ export const updateRule = async (req: Request, res: Response): Promise<void> => 
     if (appliesToRoles !== undefined) {
       updates.push(`applies_to_roles = $${paramIndex++}`);
       values.push(appliesToRoles);
+    }
+    if (appliesToEmployees !== undefined) {
+      updates.push(`applies_to_employees = $${paramIndex++}`);
+      values.push(appliesToEmployees);
+    }
+    if (enforcementType !== undefined) {
+      updates.push(`enforcement_type = $${paramIndex++}`);
+      values.push(enforcementType);
+    }
+    if (customMessage !== undefined) {
+      updates.push(`custom_message = $${paramIndex++}`);
+      values.push(customMessage);
     }
     if (priority !== undefined) {
       updates.push(`priority = $${paramIndex++}`);

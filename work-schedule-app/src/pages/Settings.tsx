@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Save, Plus, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Trash2, ToggleLeft, ToggleRight, Edit } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
 import DraggableList from '../components/DraggableList';
 import { ShiftManager } from '../components/ShiftManager';
-import { validationRulesApi, preferenceReasonsApi, settingsApi, shiftsApi } from '../services/api';
-import type { ValidationRule, PreferenceReason, Shift } from '../types';
+import { ValidationRuleModal } from '../components/ValidationRuleModal';
+import { validationRulesApi, preferenceReasonsApi, settingsApi, shiftsApi, employeeApi } from '../services/api';
+import type { ValidationRule, PreferenceReason, Shift, Employee } from '../types';
 
 type Tab = 'general' | 'shifts' | 'rules' | 'reasons';
 
@@ -18,6 +19,14 @@ const RULE_LABELS: Record<string, string> = {
   manager_requirements: 'Требования к УМ/ЗУМ',
   max_total_hours: 'Максимум часов в месяц (все)',
   max_hours_without_managers: 'Максимум часов (без УМ/ЗУМ)',
+  employee_hours_limit: 'Ограничение часов для сотрудника',
+  recommended_work_days: 'Рекомендуемое кол-во рабочих дней',
+  required_work_days: 'Конкретные рабочие дни недели',
+  coverage_by_time: 'Покрытие по времени',
+  coverage_by_day: 'Покрытие по дням',
+  shift_type_limit_per_day: 'Лимит типа смены в день',
+  max_consecutive_work_days: 'Максимум рабочих дней подряд',
+  max_consecutive_days_off: 'Максимум выходных дней подряд',
 };
 
 export default function Settings() {
@@ -25,10 +34,13 @@ export default function Settings() {
   const [rules, setRules] = useState<ValidationRule[]>([]);
   const [reasons, setReasons] = useState<PreferenceReason[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [businessHoursStart, setBusinessHoursStart] = useState('08:00');
   const [businessHoursEnd, setBusinessHoursEnd] = useState('22:00');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [ruleModalOpen, setRuleModalOpen] = useState(false);
+  const [editingRule, setEditingRule] = useState<ValidationRule | null>(null);
 
   useEffect(() => {
     loadData();
@@ -37,15 +49,17 @@ export default function Settings() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [rulesData, reasonsData, shiftsData, businessHoursData] = await Promise.all([
+      const [rulesData, reasonsData, shiftsData, employeesData, businessHoursData] = await Promise.all([
         validationRulesApi.getAll(),
         preferenceReasonsApi.getAll(),
         shiftsApi.getAll(),
+        employeeApi.getAll(),
         settingsApi.getBulk(['business_hours_start', 'business_hours_end']),
       ]);
       setRules(rulesData);
       setReasons(reasonsData);
       setShifts(shiftsData);
+      setEmployees(employeesData);
 
       // Загружаем часы работы
       const startSetting = businessHoursData.find(s => s.key === 'business_hours_start');
@@ -174,6 +188,47 @@ export default function Settings() {
     }
   };
 
+  // Validation rules handlers
+  const handleAddRule = () => {
+    setEditingRule(null);
+    setRuleModalOpen(true);
+  };
+
+  const handleEditRule = (rule: ValidationRule) => {
+    setEditingRule(rule);
+    setRuleModalOpen(true);
+  };
+
+  const handleSaveRule = async (ruleData: Omit<ValidationRule, 'id'> & { id?: number }) => {
+    try {
+      if (ruleData.id) {
+        // Обновляем существующее правило
+        const updated = await validationRulesApi.update(ruleData.id, ruleData);
+        setRules(rules.map(r => r.id === ruleData.id ? updated : r));
+      } else {
+        // Создаём новое правило
+        const newRule = await validationRulesApi.create(ruleData);
+        setRules([...rules, newRule]);
+      }
+      setRuleModalOpen(false);
+      setEditingRule(null);
+    } catch (err) {
+      console.error('Failed to save rule:', err);
+      alert('Ошибка при сохранении правила');
+    }
+  };
+
+  const handleDeleteRule = async (id: number) => {
+    if (!confirm('Удалить это правило валидации?')) return;
+    try {
+      await validationRulesApi.delete(id);
+      setRules(rules.filter(r => r.id !== id));
+    } catch (err) {
+      console.error('Failed to delete rule:', err);
+      alert('Ошибка при удалении правила');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
       <header className="bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-700 dark:to-blue-800 text-white p-4 shadow-md">
@@ -284,12 +339,23 @@ export default function Settings() {
 
             {tab === 'rules' && (
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">
-                  Правила валидации графика
-                </h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                  Перетаскивайте правила для изменения приоритета (верхние = выше приоритет)
-                </p>
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                      Правила валидации графика
+                    </h2>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                      Перетаскивайте правила для изменения приоритета (верхние = выше приоритет)
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleAddRule}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors"
+                  >
+                    <Plus className="w-5 h-5" />
+                    Добавить правило
+                  </button>
+                </div>
                 <DraggableList
                   items={rules}
                   getId={r => r.id}
@@ -304,16 +370,33 @@ export default function Settings() {
                           {rule.description}
                         </div>
                       </div>
-                      <button
-                        onClick={() => toggleRule(rule.id)}
-                        className={`ml-4 p-2 rounded transition ${
-                          rule.enabled
-                            ? 'text-green-600 dark:text-green-400'
-                            : 'text-gray-400 dark:text-gray-500'
-                        }`}
-                      >
-                        {rule.enabled ? <ToggleRight className="w-6 h-6" /> : <ToggleLeft className="w-6 h-6" />}
-                      </button>
+                      <div className="flex items-center gap-2 ml-4">
+                        <button
+                          onClick={() => handleEditRule(rule)}
+                          className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition"
+                          title="Редактировать"
+                        >
+                          <Edit className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => toggleRule(rule.id)}
+                          className={`p-2 rounded transition ${
+                            rule.enabled
+                              ? 'text-green-600 dark:text-green-400'
+                              : 'text-gray-400 dark:text-gray-500'
+                          }`}
+                          title={rule.enabled ? 'Выключить' : 'Включить'}
+                        >
+                          {rule.enabled ? <ToggleRight className="w-6 h-6" /> : <ToggleLeft className="w-6 h-6" />}
+                        </button>
+                        <button
+                          onClick={() => handleDeleteRule(rule.id)}
+                          className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition"
+                          title="Удалить"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
                     </div>
                   )}
                 />
@@ -362,6 +445,19 @@ export default function Settings() {
           </>
         )}
       </div>
+
+      {/* Modal for adding/editing validation rules */}
+      {ruleModalOpen && (
+        <ValidationRuleModal
+          rule={editingRule}
+          employees={employees}
+          onSave={handleSaveRule}
+          onClose={() => {
+            setRuleModalOpen(false);
+            setEditingRule(null);
+          }}
+        />
+      )}
     </div>
   );
 }

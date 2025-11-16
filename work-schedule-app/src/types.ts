@@ -80,7 +80,17 @@ export type ValidationRuleType =
   | 'required_coverage'
   | 'manager_requirements'
   | 'max_total_hours'
-  | 'max_hours_without_managers';
+  | 'max_hours_without_managers'
+  | 'employee_hours_limit'
+  | 'recommended_work_days'
+  | 'required_work_days'
+  | 'coverage_by_time'
+  | 'coverage_by_day'
+  | 'shift_type_limit_per_day'
+  | 'max_consecutive_work_days'
+  | 'max_consecutive_days_off';
+
+export type EnforcementType = 'warning' | 'error' | 'info';
 
 export interface ValidationRule {
   id: number;
@@ -88,6 +98,9 @@ export interface ValidationRule {
   enabled: boolean;
   config: Record<string, any>; // JSON object
   appliesToRoles?: EmployeeRole[];
+  appliesToEmployees?: string[]; // Array of employee IDs
+  enforcementType?: EnforcementType;
+  customMessage?: string;
   priority: number;
   description?: string;
 }
@@ -97,6 +110,9 @@ export interface ValidationRuleInput {
   enabled: boolean;
   config: Record<string, any>;
   appliesToRoles?: EmployeeRole[];
+  appliesToEmployees?: string[];
+  enforcementType?: EnforcementType;
+  customMessage?: string;
   priority?: number;
   description?: string;
 }
