@@ -106,18 +106,18 @@ export default function Schedule() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <header className="bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
+      <header className="bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-700 dark:to-blue-800 text-white shadow-lg">
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold">Управление графиком работы</h1>
-              <p className="text-blue-100 mt-1">Современная система планирования рабочих смен</p>
+              <p className="text-blue-100 dark:text-blue-200 mt-1">Современная система планирования рабочих смен</p>
             </div>
             <div className="flex gap-2">
               <Link
                 to="/settings"
-                className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 dark:bg-white/10 dark:hover:bg-white/20 rounded-lg transition-colors"
                 title="Настройки смен и часов работы"
               >
                 <SettingsIcon size={20} />
@@ -125,7 +125,7 @@ export default function Schedule() {
               </Link>
               <Link
                 to="/"
-                className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 dark:bg-white/10 dark:hover:bg-white/20 rounded-lg transition-colors"
               >
                 <Home size={20} />
                 <span>Главная</span>
@@ -136,16 +136,16 @@ export default function Schedule() {
       </header>
 
       <div className="container mx-auto px-4 py-6">
-        <div className="bg-white rounded-lg shadow-md mb-6">
-          <nav className="flex border-b border-gray-200">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md mb-6">
+          <nav className="flex border-b border-gray-200 dark:border-gray-700">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 px-6 py-4 font-medium transition-colors border-b-2 ${
                   activeTab === tab.id
-                    ? 'border-blue-500 text-blue-600 bg-blue-50'
-                    : 'border-transparent text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+                    ? 'border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                    : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50'
                 }`}
               >
                 {tab.icon}
@@ -157,7 +157,7 @@ export default function Schedule() {
 
         <div className="space-y-6">
           {loading ? (
-            <div className="text-center py-12 text-gray-600">
+            <div className="text-center py-12 text-gray-600 dark:text-gray-400">
               Загрузка смен...
             </div>
           ) : (
@@ -185,7 +185,7 @@ export default function Schedule() {
         </div>
       </div>
 
-      <footer className="mt-12 py-6 text-center text-gray-600 text-sm">
+      <footer className="mt-12 py-6 text-center text-gray-600 dark:text-gray-400 text-sm">
         <p>RaboTA © {new Date().getFullYear()} | Система управления графиком работы</p>
       </footer>
     </div>
