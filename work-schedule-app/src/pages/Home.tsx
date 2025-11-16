@@ -1,12 +1,14 @@
 import { Link } from 'react-router-dom';
 import { Settings as SettingsIcon } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
+import EmployeeManager from '../components/EmployeeManager';
+import RoleManager from '../components/RoleManager';
 
 export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
       <div className="container mx-auto px-4 py-16">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="text-center mb-12 relative">
             <div className="absolute top-0 right-0 flex gap-2">
@@ -25,6 +27,12 @@ export default function Home() {
             <p className="text-xl text-gray-600 dark:text-gray-300">
               Внутренний сайт для управления рабочими процессами
             </p>
+          </div>
+
+          {/* Управление сотрудниками и ролями */}
+          <div className="grid lg:grid-cols-2 gap-6 mb-12">
+            <EmployeeManager />
+            <RoleManager />
           </div>
 
           {/* Feature Cards */}

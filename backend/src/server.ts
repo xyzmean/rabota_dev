@@ -12,6 +12,7 @@ import settingsRoutes from './routes/settingsRoutes';
 import validationRulesRoutes from './routes/validationRulesRoutes';
 import preferencesRoutes from './routes/preferencesRoutes';
 import preferenceReasonsRoutes from './routes/preferenceReasonsRoutes';
+import roleRoutes from './routes/roleRoutes';
 
 // Загрузка переменных окружения
 dotenv.config();
@@ -43,6 +44,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/validation-rules', validationRulesRoutes);
 app.use('/api/preferences', preferencesRoutes);
 app.use('/api/preference-reasons', preferenceReasonsRoutes);
+app.use('/api/roles', roleRoutes);
 
 // Health check endpoint
 app.get('/health', (req: Request, res: Response) => {
@@ -57,7 +59,7 @@ app.get('/health', (req: Request, res: Response) => {
 app.get('/', (req: Request, res: Response) => {
   res.json({
     message: 'RaboTA API Server',
-    version: '2.1.0',
+    version: '2.2.0',
     endpoints: {
       employees: '/api/employees',
       shifts: '/api/shifts',
@@ -66,6 +68,7 @@ app.get('/', (req: Request, res: Response) => {
       validationRules: '/api/validation-rules',
       preferences: '/api/preferences',
       preferenceReasons: '/api/preference-reasons',
+      roles: '/api/roles',
       health: '/health'
     }
   });

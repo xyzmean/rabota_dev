@@ -51,11 +51,14 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
+DROP TRIGGER IF EXISTS update_employees_updated_at ON employees;
 CREATE TRIGGER update_employees_updated_at BEFORE UPDATE ON employees
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_shifts_updated_at ON shifts;
 CREATE TRIGGER update_shifts_updated_at BEFORE UPDATE ON shifts
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_schedule_updated_at ON schedule;
 CREATE TRIGGER update_schedule_updated_at BEFORE UPDATE ON schedule
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

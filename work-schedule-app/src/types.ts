@@ -1,4 +1,33 @@
-// Роли сотрудников
+// Права доступа для ролей
+export interface RolePermissions {
+  manage_schedule?: boolean;        // Управление графиком
+  manage_employees?: boolean;       // Управление сотрудниками
+  manage_shifts?: boolean;          // Управление сменами
+  manage_settings?: boolean;        // Управление настройками
+  view_statistics?: boolean;        // Просмотр статистики
+  approve_preferences?: boolean;    // Одобрение запросов сотрудников
+  manage_roles?: boolean;           // Управление ролями
+  manage_validation_rules?: boolean; // Управление правилами валидации
+}
+
+// Роль с настраиваемыми правами
+export interface Role {
+  id: number;
+  name: string;
+  permissions: RolePermissions;
+  color?: string;
+  description?: string;
+  isSystem?: boolean;  // Системная роль (нельзя удалить)
+}
+
+export interface RoleInput {
+  name: string;
+  permissions?: RolePermissions;
+  color?: string;
+  description?: string;
+}
+
+// LEGACY: старые типы для обратной совместимости
 export type EmployeeRole = 'manager' | 'deputy_manager' | 'storekeeper' | 'employee';
 
 export interface Shift {
@@ -15,7 +44,8 @@ export interface Shift {
 export interface Employee {
   id: string;
   name: string;
-  role?: EmployeeRole;
+  roleId?: number;                  // Ссылка на роль
+  role?: Role;                      // Объект роли (при JOIN запросах)
   excludeFromHours?: boolean; // if true, this employee's hours won't be counted (УМ/ЗУМ)
 }
 

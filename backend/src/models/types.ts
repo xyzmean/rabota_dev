@@ -3,13 +3,43 @@
  * Соответствуют структуре frontend
  */
 
-// Роли сотрудников
-export type EmployeeRole = 'manager' | 'deputy_manager' | 'storekeeper' | 'employee';
+// Права доступа для ролей
+export interface RolePermissions {
+  manage_schedule?: boolean;        // Управление графиком
+  manage_employees?: boolean;       // Управление сотрудниками
+  manage_shifts?: boolean;          // Управление сменами
+  manage_settings?: boolean;        // Управление настройками
+  view_statistics?: boolean;        // Просмотр статистики
+  approve_preferences?: boolean;    // Одобрение запросов сотрудников
+  manage_roles?: boolean;           // Управление ролями
+  manage_validation_rules?: boolean; // Управление правилами валидации
+}
 
+// Роль с настраиваемыми правами
+export interface Role {
+  id: number;
+  name: string;
+  permissions: RolePermissions;
+  color?: string;
+  description?: string;
+  isSystem?: boolean;  // Системная роль (нельзя удалить)
+  created_at?: Date;
+  updated_at?: Date;
+}
+
+export interface RoleInput {
+  name: string;
+  permissions?: RolePermissions;
+  color?: string;
+  description?: string;
+}
+
+// Сотрудник с ролью
 export interface Employee {
   id: string;
   name: string;
-  role?: EmployeeRole;
+  roleId?: number;                  // Ссылка на роль
+  role?: Role;                      // Объект роли (при JOIN запросах)
   excludeFromHours?: boolean;
   created_at?: Date;
   updated_at?: Date;
@@ -18,9 +48,12 @@ export interface Employee {
 export interface EmployeeInput {
   id: string;
   name: string;
-  role?: EmployeeRole;
+  roleId?: number;
   excludeFromHours?: boolean;
 }
+
+// LEGACY: старые типы для обратной совместимости (будут удалены позже)
+export type EmployeeRole = 'manager' | 'deputy_manager' | 'storekeeper' | 'employee';
 
 export interface Shift {
   id: string;

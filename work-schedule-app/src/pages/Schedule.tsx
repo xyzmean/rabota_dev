@@ -1,52 +1,36 @@
 import { useState, useEffect } from 'react';
-import { Calendar, Users, Clock, Home } from 'lucide-react';
+import { Calendar, Users, Home, Settings as SettingsIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import { ShiftManager } from '../components/ShiftManager';
-import { EmployeeManager } from '../components/EmployeeManager';
+import EmployeeManager from '../components/EmployeeManager';
 import { ScheduleCalendar } from '../components/ScheduleCalendar';
+import { shiftsApi } from '../services/api';
 import { Employee, Shift, ScheduleEntry } from '../types';
 
-type Tab = 'schedule' | 'shifts' | 'employees';
-
-const DEFAULT_WEEKEND_SHIFT: Omit<Shift, 'id'> = {
-  name: 'Выходной',
-  abbreviation: 'В',
-  color: '#EF4444',
-  hours: 0,
-  isDefault: true
-};
+type Tab = 'schedule' | 'employees';
 
 export default function Schedule() {
   const [activeTab, setActiveTab] = useState<Tab>('schedule');
-  const [shifts, setShifts] = useLocalStorage<Shift[]>('workSchedule_shifts', []);
+  const [shifts, setShifts] = useState<Shift[]>([]);
   const [employees, setEmployees] = useLocalStorage<Employee[]>('workSchedule_employees', []);
   const [schedule, setSchedule] = useLocalStorage<ScheduleEntry[]>('workSchedule_schedule', []);
+  const [loading, setLoading] = useState(true);
 
   const generateId = () => `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-  // Initialize with default weekend shift if no shifts exist
+  // Load shifts from API
   useEffect(() => {
-    if (shifts.length === 0) {
-      const defaultShift: Shift = { ...DEFAULT_WEEKEND_SHIFT, id: generateId() };
-      setShifts([defaultShift]);
-    }
+    loadShifts();
   }, []);
 
-  // Shift handlers
-  const handleAddShift = (shiftData: Omit<Shift, 'id'>) => {
-    const newShift: Shift = { ...shiftData, id: generateId() };
-    setShifts([...shifts, newShift]);
-  };
-
-  const handleEditShift = (id: string, shiftData: Omit<Shift, 'id'>) => {
-    setShifts(shifts.map((shift) => (shift.id === id ? { ...shiftData, id } : shift)));
-  };
-
-  const handleDeleteShift = (id: string) => {
-    if (confirm('Удалить эту смену? Все назначения этой смены в графике будут удалены.')) {
-      setShifts(shifts.filter((shift) => shift.id !== id));
-      setSchedule(schedule.filter((entry) => entry.shiftId !== id));
+  const loadShifts = async () => {
+    try {
+      const shiftsData = await shiftsApi.getAll();
+      setShifts(shiftsData);
+    } catch (err) {
+      console.error('Failed to load shifts:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -118,7 +102,6 @@ export default function Schedule() {
 
   const tabs: { id: Tab; label: string; icon: JSX.Element }[] = [
     { id: 'schedule', label: 'График работы', icon: <Calendar size={20} /> },
-    { id: 'shifts', label: 'Смены', icon: <Clock size={20} /> },
     { id: 'employees', label: 'Сотрудники', icon: <Users size={20} /> },
   ];
 
@@ -131,13 +114,23 @@ export default function Schedule() {
               <h1 className="text-3xl font-bold">Управление графиком работы</h1>
               <p className="text-blue-100 mt-1">Современная система планирования рабочих смен</p>
             </div>
-            <Link
-              to="/"
-              className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
-            >
-              <Home size={20} />
-              <span>Главная</span>
-            </Link>
+            <div className="flex gap-2">
+              <Link
+                to="/settings"
+                className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+                title="Настройки смен и часов работы"
+              >
+                <SettingsIcon size={20} />
+                <span>Настройки</span>
+              </Link>
+              <Link
+                to="/"
+                className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+              >
+                <Home size={20} />
+                <span>Главная</span>
+              </Link>
+            </div>
           </div>
         </div>
       </header>
@@ -163,32 +156,31 @@ export default function Schedule() {
         </div>
 
         <div className="space-y-6">
-          {activeTab === 'schedule' && (
-            <ScheduleCalendar
-              employees={employees}
-              shifts={shifts}
-              schedule={schedule}
-              onScheduleChange={handleScheduleChange}
-              onScheduleRemove={handleScheduleRemove}
-            />
-          )}
+          {loading ? (
+            <div className="text-center py-12 text-gray-600">
+              Загрузка смен...
+            </div>
+          ) : (
+            <>
+              {activeTab === 'schedule' && (
+                <ScheduleCalendar
+                  employees={employees}
+                  shifts={shifts}
+                  schedule={schedule}
+                  onScheduleChange={handleScheduleChange}
+                  onScheduleRemove={handleScheduleRemove}
+                />
+              )}
 
-          {activeTab === 'shifts' && (
-            <ShiftManager
-              shifts={shifts}
-              onAddShift={handleAddShift}
-              onEditShift={handleEditShift}
-              onDeleteShift={handleDeleteShift}
-            />
-          )}
-
-          {activeTab === 'employees' && (
-            <EmployeeManager
-              employees={employees}
-              onAddEmployee={handleAddEmployee}
-              onEditEmployee={handleEditEmployee}
-              onDeleteEmployee={handleDeleteEmployee}
-            />
+              {activeTab === 'employees' && (
+                <EmployeeManager
+                  employees={employees}
+                  onAddEmployee={handleAddEmployee}
+                  onEditEmployee={handleEditEmployee}
+                  onDeleteEmployee={handleDeleteEmployee}
+                />
+              )}
+            </>
           )}
         </div>
       </div>

@@ -3,10 +3,11 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, Save, Plus, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
 import DraggableList from '../components/DraggableList';
-import { validationRulesApi, preferenceReasonsApi } from '../services/api';
-import type { ValidationRule, PreferenceReason } from '../types';
+import { ShiftManager } from '../components/ShiftManager';
+import { validationRulesApi, preferenceReasonsApi, settingsApi, shiftsApi } from '../services/api';
+import type { ValidationRule, PreferenceReason, Shift } from '../types';
 
-type Tab = 'general' | 'rules' | 'reasons';
+type Tab = 'general' | 'shifts' | 'rules' | 'reasons';
 
 const RULE_LABELS: Record<string, string> = {
   max_consecutive_shifts: 'Максимальное кол-во смен подряд',
@@ -23,7 +24,11 @@ export default function Settings() {
   const [tab, setTab] = useState<Tab>('general');
   const [rules, setRules] = useState<ValidationRule[]>([]);
   const [reasons, setReasons] = useState<PreferenceReason[]>([]);
+  const [shifts, setShifts] = useState<Shift[]>([]);
+  const [businessHoursStart, setBusinessHoursStart] = useState('08:00');
+  const [businessHoursEnd, setBusinessHoursEnd] = useState('22:00');
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -32,12 +37,21 @@ export default function Settings() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [rulesData, reasonsData] = await Promise.all([
+      const [rulesData, reasonsData, shiftsData, businessHoursData] = await Promise.all([
         validationRulesApi.getAll(),
         preferenceReasonsApi.getAll(),
+        shiftsApi.getAll(),
+        settingsApi.getBulk(['business_hours_start', 'business_hours_end']),
       ]);
       setRules(rulesData);
       setReasons(reasonsData);
+      setShifts(shiftsData);
+
+      // Загружаем часы работы
+      const startSetting = businessHoursData.find(s => s.key === 'business_hours_start');
+      const endSetting = businessHoursData.find(s => s.key === 'business_hours_end');
+      if (startSetting) setBusinessHoursStart(JSON.parse(startSetting.value));
+      if (endSetting) setBusinessHoursEnd(JSON.parse(endSetting.value));
     } catch (err) {
       console.error('Failed to load settings:', err);
     } finally {
@@ -86,6 +100,80 @@ export default function Settings() {
     }
   };
 
+  // Shift handlers
+  const handleAddShift = async (shiftData: Omit<Shift, 'id'>) => {
+    try {
+      const newShift = await shiftsApi.create({
+        ...shiftData,
+        id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      });
+      setShifts([...shifts, newShift]);
+    } catch (err) {
+      console.error('Failed to add shift:', err);
+      alert('Ошибка при добавлении смены');
+    }
+  };
+
+  const handleEditShift = async (id: string, shiftData: Omit<Shift, 'id'>) => {
+    try {
+      const updated = await shiftsApi.update(id, { ...shiftData, id });
+      setShifts(shifts.map(s => s.id === id ? updated : s));
+    } catch (err) {
+      console.error('Failed to update shift:', err);
+      alert('Ошибка при обновлении смены');
+    }
+  };
+
+  const handleDeleteShift = async (id: string) => {
+    if (!confirm('Удалить эту смену? Все назначения этой смены в графике будут удалены.')) return;
+    try {
+      await shiftsApi.delete(id);
+      setShifts(shifts.filter(s => s.id !== id));
+    } catch (err) {
+      console.error('Failed to delete shift:', err);
+      alert('Ошибка при удалении смены');
+    }
+  };
+
+  // Business hours handlers
+  const saveBusinessHours = async () => {
+    setSaving(true);
+    try {
+      // Используем upsert логику - пытаемся обновить, если не получается - создаём
+      const saveOne = async (key: string, value: string, description: string) => {
+        try {
+          await settingsApi.update(key, value, description);
+        } catch (err: any) {
+          // Если настройка не найдена, создаём её
+          if (err.status === 404) {
+            await settingsApi.create({ key, value, description });
+          } else {
+            throw err;
+          }
+        }
+      };
+
+      await Promise.all([
+        saveOne(
+          'business_hours_start',
+          JSON.stringify(businessHoursStart),
+          'Время начала работы предприятия'
+        ),
+        saveOne(
+          'business_hours_end',
+          JSON.stringify(businessHoursEnd),
+          'Время окончания работы предприятия'
+        ),
+      ]);
+      alert('Часы работы сохранены');
+    } catch (err) {
+      console.error('Failed to save business hours:', err);
+      alert('Ошибка при сохранении часов работы');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
       <header className="bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-700 dark:to-blue-800 text-white p-4 shadow-md">
@@ -104,6 +192,7 @@ export default function Settings() {
         <div className="flex gap-2 mb-6 border-b border-gray-300 dark:border-gray-700">
           {[
             { id: 'general', label: 'Общие' },
+            { id: 'shifts', label: 'Часы работы и смены' },
             { id: 'rules', label: 'Правила валидации' },
             { id: 'reasons', label: 'Причины запросов' },
           ].map(({ id, label }) => (
@@ -133,6 +222,62 @@ export default function Settings() {
                     <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Тема оформления</label>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Используйте переключатель в шапке для смены темы</p>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {tab === 'shifts' && (
+              <div className="space-y-6">
+                {/* Business Hours Section */}
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                  <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">
+                    Часы работы предприятия
+                  </h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Установите время начала и окончания работы предприятия
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                        Начало работы
+                      </label>
+                      <input
+                        type="time"
+                        value={businessHoursStart}
+                        onChange={(e) => setBusinessHoursStart(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                        Окончание работы
+                      </label>
+                      <input
+                        type="time"
+                        value={businessHoursEnd}
+                        onChange={(e) => setBusinessHoursEnd(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    onClick={saveBusinessHours}
+                    disabled={saving}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Save className="w-5 h-5" />
+                    {saving ? 'Сохранение...' : 'Сохранить часы работы'}
+                  </button>
+                </div>
+
+                {/* Shifts Manager Section */}
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                  <ShiftManager
+                    shifts={shifts}
+                    onAddShift={handleAddShift}
+                    onEditShift={handleEditShift}
+                    onDeleteShift={handleDeleteShift}
+                  />
                 </div>
               </div>
             )}

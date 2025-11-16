@@ -70,15 +70,19 @@ CREATE INDEX IF NOT EXISTS idx_employee_preferences_status ON employee_preferenc
 CREATE INDEX IF NOT EXISTS idx_employee_preferences_priority ON employee_preferences(priority);
 
 -- Триггеры для автоматического обновления updated_at
+DROP TRIGGER IF EXISTS update_app_settings_updated_at ON app_settings;
 CREATE TRIGGER update_app_settings_updated_at BEFORE UPDATE ON app_settings
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_validation_rules_updated_at ON validation_rules;
 CREATE TRIGGER update_validation_rules_updated_at BEFORE UPDATE ON validation_rules
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_preference_reasons_updated_at ON preference_reasons;
 CREATE TRIGGER update_preference_reasons_updated_at BEFORE UPDATE ON preference_reasons
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_employee_preferences_updated_at ON employee_preferences;
 CREATE TRIGGER update_employee_preferences_updated_at BEFORE UPDATE ON employee_preferences
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -87,6 +91,8 @@ INSERT INTO app_settings (key, value, description) VALUES
     ('theme', '"light"', 'Тема приложения (light/dark)'),
     ('work_hours_start', '"09:00"', 'Начало рабочего дня предприятия'),
     ('work_hours_end', '"22:00"', 'Конец рабочего дня предприятия'),
+    ('business_hours_start', '"08:00"', 'Время начала работы предприятия'),
+    ('business_hours_end', '"22:00"', 'Время окончания работы предприятия'),
     ('default_validation_enabled', 'true', 'Включена ли валидация графика по умолчанию')
 ON CONFLICT (key) DO NOTHING;
 

@@ -9,6 +9,8 @@ import {
   EmployeePreferenceInput,
   PreferenceReason,
   PreferenceReasonInput,
+  Role,
+  RoleInput,
 } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
@@ -113,6 +115,9 @@ export const shiftApi = {
   },
 };
 
+// Алиас для обратной совместимости
+export const shiftsApi = shiftApi;
+
 // === Schedule API ===
 
 export const scheduleApi = {
@@ -187,9 +192,9 @@ export const settingsApi = {
     return handleResponse<AppSetting>(response);
   },
 
-  getBulk: async (keys: string[]): Promise<Record<string, any>> => {
+  getBulk: async (keys: string[]): Promise<AppSetting[]> => {
     const response = await fetch(`${API_URL}/settings/bulk?keys=${keys.join(',')}`);
-    return handleResponse<Record<string, any>>(response);
+    return handleResponse<AppSetting[]>(response);
   },
 
   create: async (setting: { key: string; value: string; description?: string }): Promise<AppSetting> => {
@@ -396,6 +401,45 @@ export const preferenceReasonsApi = {
       body: JSON.stringify({ orderedIds }),
     });
     return handleResponse<PreferenceReason[]>(response);
+  },
+};
+
+// === Roles API ===
+
+export const roleApi = {
+  getAll: async (): Promise<Role[]> => {
+    const response = await fetch(`${API_URL}/roles`);
+    return handleResponse<Role[]>(response);
+  },
+
+  getById: async (id: number): Promise<Role> => {
+    const response = await fetch(`${API_URL}/roles/${id}`);
+    return handleResponse<Role>(response);
+  },
+
+  create: async (role: RoleInput): Promise<Role> => {
+    const response = await fetch(`${API_URL}/roles`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(role),
+    });
+    return handleResponse<Role>(response);
+  },
+
+  update: async (id: number, role: Partial<RoleInput>): Promise<Role> => {
+    const response = await fetch(`${API_URL}/roles/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(role),
+    });
+    return handleResponse<Role>(response);
+  },
+
+  delete: async (id: number): Promise<void> => {
+    const response = await fetch(`${API_URL}/roles/${id}`, {
+      method: 'DELETE',
+    });
+    return handleResponse<void>(response);
   },
 };
 
