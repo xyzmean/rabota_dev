@@ -26,6 +26,7 @@ const RULE_TYPE_LABELS: Record<ValidationRuleType, string> = {
   shift_type_limit_per_day: 'Лимит типа смены в день',
   max_consecutive_work_days: 'Максимум рабочих дней подряд',
   max_consecutive_days_off: 'Максимум выходных дней подряд',
+  employee_day_off: 'Выходной день для сотрудника',
 };
 
 const ENFORCEMENT_TYPE_LABELS: Record<EnforcementType, string> = {
@@ -64,6 +65,7 @@ export function ValidationRuleModal({ rule, employees, onSave, onClose }: Valida
         shift_type_limit_per_day: { shift_limits: {} },
         max_consecutive_work_days: { max_days: 6 },
         max_consecutive_days_off: { max_days: 3 },
+        employee_day_off: { employeeId: '', specificDate: '' },
       };
       setConfig(defaultConfigs[ruleType] || {});
     }

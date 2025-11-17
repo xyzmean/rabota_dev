@@ -51,12 +51,11 @@ export default function DayOffRequests() {
       const employee = employees.find(e => e.id === request.employeeId);
       if (employee) {
         const ruleData = {
-          ruleType: 'required_work_days' as const,
+          ruleType: 'employee_day_off' as const,
           enabled: true,
           config: {
             employeeId: request.employeeId,
             specificDate: request.targetDate, // YYYY-MM-DD format
-            action: 'day_off' // Выходной
           },
           appliesToEmployees: [request.employeeId],
           enforcementType: 'error' as const,

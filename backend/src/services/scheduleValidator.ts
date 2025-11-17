@@ -101,6 +101,8 @@ async function validateRule(
       return validateMaxConsecutiveWorkDays(rule, context);
     case 'max_consecutive_days_off':
       return validateMaxConsecutiveDaysOff(rule, context);
+    case 'employee_day_off':
+      return validateEmployeeDayOff(rule, context);
     default:
       return [];
   }
@@ -1001,6 +1003,53 @@ function validateRequiredCoverage(
         });
       }
     }
+  }
+
+  return violations;
+}
+
+/**
+ * Проверка выходного дня для конкретного сотрудника
+ */
+function validateEmployeeDayOff(
+  rule: ValidationRule,
+  context: ValidationContext
+): ValidationViolation[] {
+  const violations: ValidationViolation[] = [];
+  const { employeeId, specificDate } = rule.config;
+  const { schedule, employees, shifts } = context;
+
+  if (!employeeId || !specificDate) return violations;
+
+  // Парсим дату из формата YYYY-MM-DD
+  const [year, month, day] = specificDate.split('-').map(Number);
+  if (isNaN(year) || isNaN(month) || isNaN(day)) return violations;
+
+  // Ищем запись в расписании для этого сотрудника на эту дату
+  const scheduleEntry = schedule.find(entry =>
+    entry.employeeId === employeeId &&
+    entry.year === year &&
+    entry.month === month - 1 && // JavaScript месяцы 0-11
+    entry.day === day
+  );
+
+  if (scheduleEntry) {
+    const employee = employees.find(e => e.id === employeeId);
+    const shift = shifts.find(s => s.id === scheduleEntry.shiftId);
+
+    violations.push({
+      type: rule.ruleType,
+      severity: rule.enforcementType || 'error',
+      message: rule.customMessage ||
+        `${formatDate(year, month - 1, day)}: У сотрудника ${employee?.name || 'Unknown'} назначена смена "${shift?.name || 'Unknown'}" в выходной день`,
+      date: formatDate(year, month - 1, day),
+      employeeId,
+      metadata: {
+        employeeName: employee?.name,
+        shiftName: shift?.name,
+        shiftId: scheduleEntry.shiftId
+      },
+    });
   }
 
   return violations;
