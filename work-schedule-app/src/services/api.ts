@@ -14,7 +14,13 @@ import {
   ScheduleValidationResult,
 } from '../types';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+// В production используем относительный путь (Nginx проксирует /api на backend)
+// В development используем прямой путь к backend
+const API_URL = import.meta.env.VITE_API_URL || (
+  import.meta.env.MODE === 'production'
+    ? '/api'  // Production: относительный путь через Nginx
+    : 'http://localhost:3001/api'  // Development: прямой путь
+);
 
 // Обработка ошибок API
 class ApiError extends Error {
