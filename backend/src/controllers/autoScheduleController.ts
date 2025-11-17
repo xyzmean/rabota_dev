@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { pool } from '../config/database';
+import pool from '../config/database';
 import { validationResult } from 'express-validator';
 
 // Типы для правил валидации
@@ -186,7 +186,18 @@ async function generateOptimalSchedule(
     // Добавляем одобренные выходные дни
     for (const dayOff of approvedDayOffs) {
       if (dayOff.employeeId === employee.id) {
-        const [offYear, offMonth, offDay] = dayOff.date.split('-').map(Number);
+        // Преобразуем дату в строку формата YYYY-MM-DD
+        let dateStr: string;
+        const dateValue = dayOff.date as any;
+        if (dateValue instanceof Date) {
+          dateStr = dateValue.toISOString().split('T')[0];
+        } else if (typeof dateValue === 'string') {
+          dateStr = dateValue;
+        } else {
+          dateStr = String(dateValue);
+        }
+
+        const [offYear, offMonth, offDay] = dateStr.split('-').map(Number);
         if (offYear === year && offMonth === month + 1) { // +1 т.к. SQL месяцы 1-12
           schedule.push({
             employee_id: employee.id,

@@ -132,7 +132,8 @@ export type ValidationRuleType =
   | 'shift_type_limit_per_day'
   | 'max_consecutive_work_days'
   | 'max_consecutive_days_off'
-  | 'employee_day_off';
+  | 'employee_day_off'
+  | 'approved_day_off_requests';
 
 export type EnforcementType = 'warning' | 'error' | 'info';
 

@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { pool } from '../config/database';
+import pool from '../config/database';
 
 // Полная очистка базы данных (кроме системных данных)
 export const clearDatabase = async (req: Request, res: Response) => {
@@ -95,7 +95,7 @@ export const clearSchedule = async (req: Request, res: Response) => {
 
     if (month !== undefined && year !== undefined) {
       query += ' WHERE month = $1 AND year = $2';
-      params.push(parseInt(month), parseInt(year));
+      params.push(parseInt(month as string), parseInt(year as string));
     }
 
     const result = await pool.query(query, params);
@@ -103,7 +103,7 @@ export const clearSchedule = async (req: Request, res: Response) => {
     res.json({
       success: true,
       message: params.length > 0
-        ? `График за ${parseInt(month) + 1}/${year} очищен`
+        ? `График за ${parseInt(month as string) + 1}/${year} очищен`
         : 'Весь график очищен',
       deletedRecords: result.rowCount
     });
