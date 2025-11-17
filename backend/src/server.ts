@@ -20,9 +20,34 @@ dotenv.config();
 const app: Application = express();
 const PORT = process.env.PORT || 3001;
 
-// Middleware
+// Middleware - CORS configuration
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    // Разрешаем запросы без origin (например, mobile apps, curl, same-origin)
+    if (!origin) return callback(null, true);
+
+    // В development режиме разрешаем все localhost origins
+    if (process.env.NODE_ENV !== 'production') {
+      if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+        return callback(null, true);
+      }
+    }
+
+    // Production allowed origins
+    const allowedOrigins = [
+      'https://rabota.yo1nk.ru',
+      'http://rabota.yo1nk.ru'
+    ];
+
+    if (allowedOrigins.indexOf(origin) !== -1 || process.env.CORS_ORIGIN === '*') {
+      callback(null, true);
+    } else if (process.env.NODE_ENV === 'production') {
+      callback(new Error('Not allowed by CORS'));
+    } else {
+      // В dev режиме разрешаем все
+      callback(null, true);
+    }
+  },
   credentials: true
 }));
 app.use(express.json());

@@ -153,18 +153,7 @@ export const getBulkSettings = async (req: Request, res: Response): Promise<void
     );
 
     const settings = result.rows.map(dbToApi);
-
-    // Возвращаем в виде объекта { key: value } для удобства
-    const settingsObj = settings.reduce((acc, setting) => {
-      try {
-        acc[setting.key] = JSON.parse(setting.value);
-      } catch {
-        acc[setting.key] = setting.value;
-      }
-      return acc;
-    }, {} as Record<string, any>);
-
-    res.json(settingsObj);
+    res.json(settings);
   } catch (error) {
     console.error('Error fetching bulk settings:', error);
     res.status(500).json({ error: 'Failed to fetch settings' });

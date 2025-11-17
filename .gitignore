@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Локальные файлы для настройки
+nginx
+
+
 # Environment variables
 .env
 .env.local

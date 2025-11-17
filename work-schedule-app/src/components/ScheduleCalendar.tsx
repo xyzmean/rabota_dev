@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, X, AlertCircle, AlertTriangle, Info, PlusCircle } from 'lucide-react';
 import { Employee, Shift, ScheduleEntry, ValidationViolation, ScheduleValidationResult, EmployeePreference, PreferenceReason, EmployeePreferenceInput } from '../types';
-import { scheduleApi, preferencesApi, preferenceReasonsApi } from '../services/api';
+import { scheduleApi, preferencesApi } from '../services/api';
 import { DayOffRequestModal } from './DayOffRequestModal';
 import { DayOffRequestViewer } from './DayOffRequestViewer';
 
@@ -9,16 +9,22 @@ interface ScheduleCalendarProps {
   employees: Employee[];
   shifts: Shift[];
   schedule: ScheduleEntry[];
+  preferences: EmployeePreference[];
+  reasons: PreferenceReason[];
   onScheduleChange: (entry: ScheduleEntry) => void;
   onScheduleRemove: (employeeId: string, day: number, month: number, year: number) => void;
+  onPreferencesChange: () => void;
 }
 
 export function ScheduleCalendar({
   employees,
   shifts,
   schedule,
+  preferences,
+  reasons,
   onScheduleChange,
-  onScheduleRemove
+  onScheduleRemove,
+  onPreferencesChange
 }: ScheduleCalendarProps) {
   const today = new Date();
   const [currentDate] = useState(today);
@@ -26,9 +32,6 @@ export function ScheduleCalendar({
   const [year, setYear] = useState(currentDate.getFullYear());
   const [activeCell, setActiveCell] = useState<{ employeeId: string; day: number; rect?: DOMRect } | null>(null);
   const [validationResult, setValidationResult] = useState<ScheduleValidationResult | null>(null);
-  const [loadingValidation, setLoadingValidation] = useState(false);
-  const [preferences, setPreferences] = useState<EmployeePreference[]>([]);
-  const [reasons, setReasons] = useState<PreferenceReason[]>([]);
   const [requestModalOpen, setRequestModalOpen] = useState(false);
   const [viewingRequest, setViewingRequest] = useState<EmployeePreference | null>(null);
   const popupRef = useRef<HTMLDivElement>(null);
@@ -36,38 +39,17 @@ export function ScheduleCalendar({
   // Load validation results when month/year/schedule changes
   useEffect(() => {
     const loadValidation = async () => {
-      setLoadingValidation(true);
       try {
         const result = await scheduleApi.validate(month, year);
         setValidationResult(result);
       } catch (error) {
         console.error('Failed to load validation:', error);
         setValidationResult(null);
-      } finally {
-        setLoadingValidation(false);
       }
     };
 
     loadValidation();
   }, [month, year, schedule]);
-
-  // Load day-off requests and reasons
-  useEffect(() => {
-    const loadPreferences = async () => {
-      try {
-        const [prefsData, reasonsData] = await Promise.all([
-          preferencesApi.getAll(),
-          preferenceReasonsApi.getAll(),
-        ]);
-        setPreferences(prefsData);
-        setReasons(reasonsData);
-      } catch (error) {
-        console.error('Failed to load preferences:', error);
-      }
-    };
-
-    loadPreferences();
-  }, []);
 
   // Helper function to check if a date is today
   const isToday = (day: number) => {
@@ -113,30 +95,36 @@ export function ScheduleCalendar({
   // Get pending day-off requests for a specific date
   const getPendingRequests = (employeeId: string, day: number): EmployeePreference | undefined => {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    return preferences.find(p =>
-      p.employeeId === employeeId &&
-      p.targetDate === dateStr &&
-      p.preferenceType === 'day_off' &&
-      p.status === 'pending'
-    );
+    return preferences.find(p => {
+      // targetDate from API is in ISO format: "2025-11-20T00:00:00.000Z"
+      // We need to compare only the date part
+      if (!p.targetDate) return false;
+      const prefDate = p.targetDate.split('T')[0]; // Extract "2025-11-20"
+      return (
+        p.employeeId === employeeId &&
+        prefDate === dateStr &&
+        p.preferenceType === 'day_off' &&
+        p.status === 'pending'
+      );
+    });
   };
 
   // Handle request creation
   const handleCreateRequest = async (request: EmployeePreferenceInput) => {
-    const created = await preferencesApi.create(request);
-    setPreferences([...preferences, created]);
+    await preferencesApi.create(request);
+    onPreferencesChange(); // Reload preferences from parent
   };
 
   // Handle request approval
   const handleApproveRequest = async (id: number) => {
     await preferencesApi.updateStatus(id, 'approved');
-    setPreferences(preferences.map(p => p.id === id ? { ...p, status: 'approved' } : p));
+    onPreferencesChange(); // Reload preferences from parent
   };
 
   // Handle request rejection
   const handleRejectRequest = async (id: number) => {
     await preferencesApi.updateStatus(id, 'rejected');
-    setPreferences(preferences.map(p => p.id === id ? { ...p, status: 'rejected' } : p));
+    onPreferencesChange(); // Reload preferences from parent
   };
 
   const monthNames = [
@@ -273,24 +261,34 @@ export function ScheduleCalendar({
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 md:p-6">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
         <h2 className="text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-100">График работы</h2>
-        <div className="flex items-center gap-2 md:gap-4">
+        <div className="flex items-center gap-2 md:gap-4 w-full md:w-auto justify-between md:justify-end">
           <button
-            onClick={goToPreviousMonth}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            onClick={() => setRequestModalOpen(true)}
+            className="flex items-center gap-2 px-3 py-2 bg-green-500 dark:bg-green-600 text-white rounded-lg hover:bg-green-600 dark:hover:bg-green-700 transition-colors text-sm md:text-base"
           >
-            <ChevronLeft size={24} className="text-gray-800 dark:text-gray-200" />
+            <PlusCircle size={20} />
+            <span className="hidden sm:inline">Запросить выходной</span>
+            <span className="sm:hidden">Запрос</span>
           </button>
-          <span className="text-base md:text-lg font-semibold min-w-[150px] md:min-w-[200px] text-center text-gray-800 dark:text-gray-100">
-            {monthNames[month]} {year}
-          </span>
-          <button
-            onClick={goToNextMonth}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-          >
-            <ChevronRight size={24} className="text-gray-800 dark:text-gray-200" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={goToPreviousMonth}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              <ChevronLeft size={24} className="text-gray-800 dark:text-gray-200" />
+            </button>
+            <span className="text-base md:text-lg font-semibold min-w-[120px] md:min-w-[200px] text-center text-gray-800 dark:text-gray-100">
+              {monthNames[month]} {year}
+            </span>
+            <button
+              onClick={goToNextMonth}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              <ChevronRight size={24} className="text-gray-800 dark:text-gray-200" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -565,10 +563,34 @@ export function ScheduleCalendar({
               <li>• Выберите нужную смену из всплывающего меню</li>
               <li>• <span className="font-semibold text-green-700 dark:text-green-400">Зеленым</span> выделена текущая дата</li>
               <li>• <span className="font-semibold text-red-700 dark:text-red-400">Красным</span> выделены выходные дни (суббота и воскресенье)</li>
+              <li>• <span className="inline-block w-2 h-2 rounded-full bg-red-600 dark:bg-red-500"></span> Красная точка - ожидающий запрос на выходной (кликните для просмотра)</li>
               <li>• Статистика часов отображается вверху таблицы</li>
             </ul>
           </div>
         </>
+      )}
+
+      {/* Day Off Request Modal */}
+      {requestModalOpen && (
+        <DayOffRequestModal
+          employees={employees}
+          reasons={reasons}
+          onSave={handleCreateRequest}
+          onClose={() => setRequestModalOpen(false)}
+        />
+      )}
+
+      {/* Day Off Request Viewer */}
+      {viewingRequest && (
+        <DayOffRequestViewer
+          request={viewingRequest}
+          employee={employees.find(e => e.id === viewingRequest.employeeId)}
+          reason={reasons.find(r => r.id === viewingRequest.reasonId)}
+          onApprove={handleApproveRequest}
+          onReject={handleRejectRequest}
+          onClose={() => setViewingRequest(null)}
+          canApprove={true} // TODO: Implement role-based permissions
+        />
       )}
     </div>
   );

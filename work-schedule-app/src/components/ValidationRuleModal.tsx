@@ -5,7 +5,7 @@ import { ValidationRule, ValidationRuleType, EnforcementType, Employee } from '.
 interface ValidationRuleModalProps {
   rule: ValidationRule | null;
   employees: Employee[];
-  onSave: (rule: Partial<ValidationRule>) => void;
+  onSave: (rule: Omit<ValidationRule, 'id'> & { id?: number }) => Promise<void>;
   onClose: () => void;
 }
 
@@ -73,10 +73,10 @@ export function ValidationRuleModal({ rule, employees, onSave, onClose }: Valida
     setConfig({ ...config, [key]: value });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const ruleData: Partial<ValidationRule> = {
+    const ruleData: any = {
       ruleType,
       enabled,
       config,
@@ -90,7 +90,7 @@ export function ValidationRuleModal({ rule, employees, onSave, onClose }: Valida
       ruleData.id = rule.id;
     }
 
-    onSave(ruleData);
+    await onSave(ruleData);
   };
 
   const toggleEmployee = (employeeId: string) => {

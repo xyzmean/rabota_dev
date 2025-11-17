@@ -50,11 +50,14 @@ export interface Employee {
 }
 
 export interface ScheduleEntry {
+  id?: number;
   employeeId: string;
   day: number; // day of month (1-31)
   month: number; // 0-11 (JavaScript month format)
   year: number;
   shiftId: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface MonthData {

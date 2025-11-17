@@ -5,6 +5,7 @@ import ThemeToggle from '../components/ThemeToggle';
 import DraggableList from '../components/DraggableList';
 import { ShiftManager } from '../components/ShiftManager';
 import { ValidationRuleModal } from '../components/ValidationRuleModal';
+import { PreferenceReasonModal } from '../components/PreferenceReasonModal';
 import { validationRulesApi, preferenceReasonsApi, settingsApi, shiftsApi, employeeApi } from '../services/api';
 import type { ValidationRule, PreferenceReason, Shift, Employee } from '../types';
 
@@ -41,6 +42,8 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [ruleModalOpen, setRuleModalOpen] = useState(false);
   const [editingRule, setEditingRule] = useState<ValidationRule | null>(null);
+  const [reasonModalOpen, setReasonModalOpen] = useState(false);
+  const [editingReason, setEditingReason] = useState<PreferenceReason | null>(null);
 
   useEffect(() => {
     loadData();
@@ -114,6 +117,23 @@ export default function Settings() {
     }
   };
 
+  const handleSaveReason = async (reasonData: {
+    name: string;
+    priority: number;
+    color: string;
+    description: string;
+  }) => {
+    if (editingReason) {
+      // Update existing reason
+      const updated = await preferenceReasonsApi.update(editingReason.id, reasonData);
+      setReasons(reasons.map(r => r.id === editingReason.id ? updated : r));
+    } else {
+      // Create new reason
+      const created = await preferenceReasonsApi.create(reasonData);
+      setReasons([...reasons, created]);
+    }
+  };
+
   // Shift handlers
   const handleAddShift = async (shiftData: Omit<Shift, 'id'>) => {
     try {
@@ -130,7 +150,7 @@ export default function Settings() {
 
   const handleEditShift = async (id: string, shiftData: Omit<Shift, 'id'>) => {
     try {
-      const updated = await shiftsApi.update(id, { ...shiftData, id });
+      const updated = await shiftsApi.update(id, shiftData);
       setShifts(shifts.map(s => s.id === id ? updated : s));
     } catch (err) {
       console.error('Failed to update shift:', err);
@@ -405,9 +425,21 @@ export default function Settings() {
 
             {tab === 'reasons' && (
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">
-                  Причины для запросов сотрудников
-                </h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                    Причины для запросов сотрудников
+                  </h2>
+                  <button
+                    onClick={() => {
+                      setEditingReason(null);
+                      setReasonModalOpen(true);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors"
+                  >
+                    <Plus className="w-5 h-5" />
+                    Добавить причину
+                  </button>
+                </div>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                   Перетаскивайте причины для изменения приоритета (верхние = выше приоритет)
                 </p>
@@ -455,6 +487,18 @@ export default function Settings() {
           onClose={() => {
             setRuleModalOpen(false);
             setEditingRule(null);
+          }}
+        />
+      )}
+
+      {/* Modal for adding/editing preference reasons */}
+      {reasonModalOpen && (
+        <PreferenceReasonModal
+          reason={editingReason}
+          onSave={handleSaveReason}
+          onClose={() => {
+            setReasonModalOpen(false);
+            setEditingReason(null);
           }}
         />
       )}

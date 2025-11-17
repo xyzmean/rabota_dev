@@ -96,23 +96,5 @@ INSERT INTO app_settings (key, value, description) VALUES
     ('default_validation_enabled', 'true', 'Включена ли валидация графика по умолчанию')
 ON CONFLICT (key) DO NOTHING;
 
--- Вставка дефолтных правил валидации
-INSERT INTO validation_rules (rule_type, enabled, config, applies_to_roles, priority, description) VALUES
-    ('max_consecutive_shifts', true, '{"max_days": 5}', NULL, 1, 'Максимальное количество смен подряд'),
-    ('min_employees_per_shift', true, '{"min_count": 2}', NULL, 2, 'Минимальное количество сотрудников в смене'),
-    ('max_employees_per_shift', true, '{"max_count": 5}', NULL, 3, 'Максимальное количество сотрудников в смене'),
-    ('max_employees_per_shift_type', true, '{"shift_limits": {}}', NULL, 4, 'Максимальное количество людей в конкретной смене в день'),
-    ('required_coverage', true, '{"rules": []}', NULL, 5, 'Обязательное покрытие конкретных часов/дней определенным количеством сотрудников'),
-    ('manager_requirements', true, '{"min_managers_per_day": 1}', '{"manager", "deputy_manager"}', 6, 'Требования к наличию управляющих в графике'),
-    ('max_total_hours', true, '{"max_hours_per_month": 176}', NULL, 7, 'Максимальное количество часов в месяц для всех сотрудников'),
-    ('max_hours_without_managers', true, '{"max_hours_per_month": 176}', '{"employee", "storekeeper"}', 8, 'Максимальное количество часов в месяц для сотрудников (без УМ/ЗУМ)')
-ON CONFLICT DO NOTHING;
-
--- Вставка дефолтных причин для запросов
-INSERT INTO preference_reasons (name, priority, color, description) VALUES
-    ('Семейные обстоятельства', 100, '#ef4444', 'Важные семейные события и обязательства'),
-    ('Медицинские причины', 90, '#f59e0b', 'Медицинские процедуры и обследования'),
-    ('Учеба', 70, '#3b82f6', 'Занятия, экзамены, защита'),
-    ('Личные дела', 50, '#8b5cf6', 'Личные планы и встречи'),
-    ('Другое', 10, '#6b7280', 'Прочие причины')
-ON CONFLICT DO NOTHING;
+-- Правила валидации и причины запросов теперь создаются вручную через UI
+-- (удалены автоматические INSERT'ы)

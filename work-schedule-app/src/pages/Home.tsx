@@ -1,10 +1,41 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Settings as SettingsIcon } from 'lucide-react';
+import { Settings as SettingsIcon, CalendarCheck } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
 import EmployeeManager from '../components/EmployeeManager';
 import RoleManager from '../components/RoleManager';
+import { DayOffRequestModal } from '../components/DayOffRequestModal';
+import { employeeApi, preferenceReasonsApi, preferencesApi } from '../services/api';
+import { Employee, PreferenceReason, EmployeePreferenceInput } from '../types';
 
 export default function Home() {
+  const [requestModalOpen, setRequestModalOpen] = useState(false);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [reasons, setReasons] = useState<PreferenceReason[]>([]);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      const [employeesData, reasonsData] = await Promise.all([
+        employeeApi.getAll(),
+        preferenceReasonsApi.getAll(),
+      ]);
+      setEmployees(employeesData);
+      setReasons(reasonsData);
+    } catch (err) {
+      console.error('Failed to load data:', err);
+    }
+  };
+
+  const handleCreateRequest = async (request: EmployeePreferenceInput) => {
+    await preferencesApi.create(request);
+    // Show success message
+    alert('Запрос на выходной успешно создан!');
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
       <div className="container mx-auto px-4 py-16">
@@ -12,6 +43,14 @@ export default function Home() {
           {/* Header */}
           <div className="text-center mb-12 relative">
             <div className="absolute top-0 right-0 flex gap-2">
+              <button
+                onClick={() => setRequestModalOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-500 dark:bg-green-600 hover:bg-green-600 dark:hover:bg-green-700 text-white transition-colors shadow-md hover:shadow-lg"
+                title="Запросить выходной день"
+              >
+                <CalendarCheck className="w-5 h-5" />
+                <span className="hidden sm:inline">Запросить выходной</span>
+              </button>
               <ThemeToggle />
               <Link
                 to="/settings"
@@ -169,6 +208,16 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* Day Off Request Modal */}
+      {requestModalOpen && (
+        <DayOffRequestModal
+          employees={employees}
+          reasons={reasons}
+          onSave={handleCreateRequest}
+          onClose={() => setRequestModalOpen(false)}
+        />
+      )}
     </div>
   );
 }
