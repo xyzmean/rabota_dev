@@ -208,7 +208,7 @@ async function generateOptimalSchedule(
 
     // Проверяем, не работает ли сотрудник уже много дней подряд
     const filteredEmployees = availableEmployees.filter(emp => {
-      const consecutiveWorkDays = getConsecutiveWorkDays(emp.id, day, schedule);
+      const consecutiveWorkDays = getConsecutiveWorkDays(emp.id, day, month, year, schedule);
       // Ищем правило максимальных рабочих дней подряд (объединенные типы)
       const maxConsecutiveRule = validationRules.find(r =>
         r.rule_type === 'max_consecutive_work_days' || r.rule_type === 'max_consecutive_shifts'
@@ -243,23 +243,36 @@ async function generateOptimalSchedule(
 function getConsecutiveWorkDays(
   employeeId: string,
   currentDay: number,
+  currentMonth: number,
+  currentYear: number,
   schedule: ScheduleEntry[]
 ): number {
-  const employeeEntries = schedule
-    .filter(s => s.employee_id === employeeId && s.shift_id !== 'day-off')
-    .filter(s => s.day < currentDay)
-    .sort((a, b) => b.day - a.day); // Сортируем в обратном порядке
-
   let consecutiveDays = 0;
-  let expectedDay = currentDay - 1;
+  let checkDay = currentDay - 1;
 
-  for (const entry of employeeEntries) {
-    if (entry.day === expectedDay) {
-      consecutiveDays++;
-      expectedDay--;
-    } else {
-      break; // Прерывание последовательности
+  // Проверяем дни в обратном порядке от текущего дня
+  while (checkDay > 0) {
+    // Ищем запись на этот день для сотрудника
+    const dayEntry = schedule.find(s =>
+      s.employee_id === employeeId &&
+      s.day === checkDay &&
+      s.month === currentMonth &&
+      s.year === currentYear
+    );
+
+    if (!dayEntry) {
+      // Если нет записи на этот день, считаем что прерывание
+      break;
     }
+
+    if (dayEntry.shift_id === 'day-off') {
+      // Если выходной, то последовательность рабочих дней прервана
+      break;
+    }
+
+    // Если рабочий день, увеличиваем счетчик
+    consecutiveDays++;
+    checkDay--;
   }
 
   return consecutiveDays;
@@ -290,24 +303,38 @@ function generateDaySchedule(
   }
 
   // Генерируем все возможные варианты распределения смен
-  const variants = generateScheduleVariants(availableEmployees, shifts, day, month, year);
+  const variants = generateScheduleVariants(availableEmployees, shifts, day, month, year, existingSchedule);
 
   if (variants.length === 0) {
     return daySchedule;
   }
 
   // Оцениваем каждый вариант по правилам валидации
-  const scoredVariants = variants.map(variant => {
+  const scoredVariants = variants.map((variant, index) => {
     const scoreResult = calculateVariantScore(variant, validationRules, existingSchedule);
+
+    // Даем бонус первому варианту (паттерн-основанному), чтобы он выбирался при равных условиях
+    let finalScore = scoreResult.score;
+    if (index === 0 && variants.length > 1) {
+      finalScore += 0.1; // Небольшой бонус, чтобы паттерн-вариант был первым при равных правилах
+    }
+
     return {
       variant,
-      score: scoreResult.score,
+      score: finalScore,
       ruleResults: scoreResult.ruleResults
     };
   });
 
   // Сортируем по количеству подряд выполненных правил (больше = лучше)
-  scoredVariants.sort((a, b) => b.score - a.score);
+  scoredVariants.sort((a, b) => {
+    // Сначала по основному счету (количество подряд выполненных правил)
+    if (b.score !== a.score) {
+      return b.score - a.score;
+    }
+    // Если счеты равны, предпочитаем паттерн-вариант (индекс 0)
+    return a.variant === variants[0] ? -1 : 1;
+  });
 
   // Выбираем лучший вариант
   const bestVariant = scoredVariants[0]?.variant || [];
@@ -321,7 +348,8 @@ function generateScheduleVariants(
   shifts: Shift[],
   day: number,
   month: number,
-  year: number
+  year: number,
+  existingSchedule: ScheduleEntry[]
 ): ScheduleEntry[][] {
   const variants: ScheduleEntry[][] = [];
 
@@ -332,6 +360,13 @@ function generateScheduleVariants(
   const allShifts = [...shifts];
   // Добавляем выходной смену как вариант для генерации
   allShifts.push({ id: 'day-off', name: 'Выходной', abbreviation: 'В', color: '#ef4444', hours: 0, is_default: false });
+
+  // Вариант 0: Паттерн-основанный вариант (самый важный)
+  // Генерирует график на основе паттернов 2/2, 3/1 и т.д.
+  const patternBasedVariant = generatePatternBasedVariant(employees, shifts, day, month, year, existingSchedule);
+  if (patternBasedVariant.length > 0) {
+    variants.push(patternBasedVariant);
+  }
 
   // Вариант 1: всем по одной смене, равномерное распределение (без выходных)
   const equalVariant: ScheduleEntry[] = [];
@@ -468,6 +503,63 @@ function generateScheduleVariants(
   });
 
   return uniqueVariants;
+}
+
+// Генерирует вариант на основе паттернов смен (2/2, 3/1 и т.д.)
+function generatePatternBasedVariant(
+  employees: Employee[],
+  shifts: Shift[],
+  day: number,
+  month: number,
+  year: number,
+  existingSchedule: ScheduleEntry[]
+): ScheduleEntry[] {
+  const variant: ScheduleEntry[] = [];
+
+  if (employees.length === 0) return variant;
+
+  // Определяем максимальное количество рабочих дней подряд из правил
+  // Если правил нет, используем 2 по умолчанию
+  const maxConsecutiveWorkDays = 2;
+
+  // Анализируем предыдущие дни для каждого сотрудника
+  for (const employee of employees) {
+    const consecutiveWorkDays = getConsecutiveWorkDays(employee.id, day, month, year, existingSchedule);
+
+    // Если сотрудник работал maxConsecutiveWorkDays дней подряд, даем выходной
+    if (consecutiveWorkDays >= maxConsecutiveWorkDays) {
+      variant.push({
+        employee_id: employee.id,
+        day,
+        month,
+        year,
+        shift_id: 'day-off'
+      });
+    } else {
+      // Иначе даем рабочую смену
+      const shiftIndex = employees.indexOf(employee) % shifts.length;
+      if (shifts.length > 0) {
+        variant.push({
+          employee_id: employee.id,
+          day,
+          month,
+          year,
+          shift_id: shifts[shiftIndex].id
+        });
+      } else {
+        // Если нет рабочих смен, даем выходной
+        variant.push({
+          employee_id: employee.id,
+          day,
+          month,
+          year,
+          shift_id: 'day-off'
+        });
+      }
+    }
+  }
+
+  return variant;
 }
 
 // Рассчитываем оценку варианта по правилам валидации
