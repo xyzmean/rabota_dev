@@ -361,9 +361,9 @@ function generateScheduleVariants(
   // Добавляем выходной смену как вариант для генерации
   allShifts.push({ id: 'day-off', name: 'Выходной', abbreviation: 'В', color: '#ef4444', hours: 0, is_default: false });
 
-  // Вариант 0: Паттерн-основанный вариант (самый важный)
-  // Генерирует график на основе паттернов 2/2, 3/1 и т.д.
-  const patternBasedVariant = generatePatternBasedVariant(employees, shifts, day, month, year, existingSchedule);
+  // Вариант 0: Правила-основанный вариант (самый важный)
+  // Генерирует график с учетом всех правил валидации
+  const patternBasedVariant = generatePatternBasedVariant(employees, shifts, day, month, year, existingSchedule, validationRules);
   if (patternBasedVariant.length > 0) {
     variants.push(patternBasedVariant);
   }
@@ -505,24 +505,30 @@ function generateScheduleVariants(
   return uniqueVariants;
 }
 
-// Генерирует вариант на основе паттернов смен (2/2, 3/1 и т.д.)
+// Генерирует варианты на основе всех правил валидации
 function generatePatternBasedVariant(
   employees: Employee[],
   shifts: Shift[],
   day: number,
   month: number,
   year: number,
-  existingSchedule: ScheduleEntry[]
+  existingSchedule: ScheduleEntry[],
+  validationRules: ValidationRule[]
 ): ScheduleEntry[] {
   const variant: ScheduleEntry[] = [];
 
   if (employees.length === 0) return variant;
 
-  // Определяем максимальное количество рабочих дней подряд из правил
-  // Если правил нет, используем 2 по умолчанию
-  const maxConsecutiveWorkDays = 2;
+  // Получаем ограничения из правил
+  const maxConsecutiveRule = validationRules.find(r =>
+    r.rule_type === 'max_consecutive_work_days' || r.rule_type === 'max_consecutive_shifts'
+  );
+  const maxConsecutiveWorkDays = maxConsecutiveRule ? maxConsecutiveRule.config.max_days || 2 : 2;
 
-  // Анализируем предыдущие дни для каждого сотрудника
+  const minEmployeesRule = validationRules.find(r => r.rule_type === 'min_employees_per_shift');
+  const maxEmployeesRule = validationRules.find(r => r.rule_type === 'max_employees_per_shift');
+
+  // Для каждого сотрудника определяем статус (может работать или нужен выходной)
   for (const employee of employees) {
     const consecutiveWorkDays = getConsecutiveWorkDays(employee.id, day, month, year, existingSchedule);
 
@@ -559,7 +565,83 @@ function generatePatternBasedVariant(
     }
   }
 
+  // Проверяем и корректируем по правилам количества сотрудников
+  if (minEmployeesRule || maxEmployeesRule) {
+    return adjustVariantForEmployeeLimits(variant, employees, shifts, minEmployeesRule, maxEmployeesRule);
+  }
+
   return variant;
+}
+
+// Корректирует вариант по правилам количества сотрудников
+function adjustVariantForEmployeeLimits(
+  variant: ScheduleEntry[],
+  employees: Employee[],
+  shifts: Shift[],
+  minEmployeesRule: ValidationRule | undefined,
+  maxEmployeesRule: ValidationRule | undefined
+): ScheduleEntry[] {
+  // Если нет ограничений, возвращаем как есть
+  if (!minEmployeesRule && !maxEmployeesRule) {
+    return variant;
+  }
+
+  // Считаем сотрудников по сменам
+  const shiftCounts = new Map<string, number>();
+  for (const entry of variant) {
+    if (entry.shift_id !== 'day-off') {
+      shiftCounts.set(entry.shift_id, (shiftCounts.get(entry.shift_id) || 0) + 1);
+    }
+  }
+
+  // Корректируем при нарушении ограничений
+  const adjustedVariant = [...variant];
+
+  // Проверяем минимальное количество сотрудников
+  if (minEmployeesRule) {
+    const minEmployees = minEmployeesRule.config.min_employees || 1;
+    const shiftIds = minEmployeesRule.config.shift_ids || [];
+
+    for (const shiftId of shiftIds) {
+      const currentCount = shiftCounts.get(shiftId) || 0;
+      const needed = minEmployees - currentCount;
+
+      if (needed > 0) {
+        // Добавляем сотрудников до минимума
+        const availableEmployees = adjustedVariant
+          .filter(e => e.shift_id === 'day-off')
+          .slice(0, needed);
+
+        availableEmployees.forEach(entry => {
+          entry.shift_id = shiftId;
+        });
+      }
+    }
+  }
+
+  // Проверяем максимальное количество сотрудников
+  if (maxEmployeesRule) {
+    const maxEmployees = maxEmployeesRule.config.max_employees || employees.length;
+    const shiftIds = maxEmployeesRule.config.shift_ids || [];
+
+    for (const shiftId of shiftIds) {
+      const currentCount = shiftCounts.get(shiftId) || 0;
+      const excess = currentCount - maxEmployees;
+
+      if (excess > 0) {
+        // Убираем лишних сотрудников в выходной
+        const excessEntries = adjustedVariant
+          .filter(e => e.shift_id === shiftId)
+          .slice(0, excess);
+
+        excessEntries.forEach(entry => {
+          entry.shift_id = 'day-off';
+        });
+      }
+    }
+  }
+
+  return adjustedVariant;
 }
 
 // Рассчитываем оценку варианта по правилам валидации
