@@ -1,8 +1,7 @@
-# Production Docker Compose с Nginx SNI routing
-# Использование: docker compose -f docker-compose.prod.yml up -d
+# docker-compose.prod.yml
+version: '3.8'
 
 services:
-  # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
     container_name: rabota_postgres
@@ -13,8 +12,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    # ports: 5432 не нужен наружу, если только локально
     command: >
       postgres
       -c shared_buffers=128MB
@@ -30,7 +28,6 @@ services:
     networks:
       - rabota_network
 
-  # Backend API
   backend:
     build:
       context: ./backend
@@ -38,7 +35,7 @@ services:
     container_name: rabota_backend
     restart: unless-stopped
     ports:
-      - "3001:3001"
+      - "127.0.0.1:3001:3001"   # ← bind only to localhost!
     environment:
       NODE_ENV: production
       PORT: 3001
@@ -47,19 +44,13 @@ services:
       DB_NAME: rabota_db
       DB_USER: rabota_user
       DB_PASSWORD: ${DB_PASSWORD:-changeme}
-      CORS_ORIGIN: ${CORS_ORIGIN:-https://rabota.yo1nk.ru}
+      CORS_ORIGIN: https://rabota.yo1nk.ru
     depends_on:
       postgres:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3001/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
     networks:
       - rabota_network
 
-  # Frontend
   frontend:
     build:
       context: ./work-schedule-app
@@ -67,49 +58,14 @@ services:
     container_name: rabota_frontend
     restart: unless-stopped
     ports:
-      - "8081:80"
+      - "127.0.0.1:8081:80"     # ← bind only to localhost!
     depends_on:
       - backend
     networks:
       - rabota_network
-
-  # Nginx reverse proxy with SNI routing
-  nginx:
-    image: nginx:alpine
-    container_name: rabota_nginx
-    restart: unless-stopped
-    ports:
-      - "4433:4433"  # HTTPS для rabota.yo1nk.ru (SNI routing на хосте направит сюда)
-      - "8080:80"    # HTTP (опционально, для редиректа)
-    volumes:
-      # Монтируем все конфиги nginx
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/sites-available:/etc/nginx/sites-available:ro
-      - ./nginx/sites-enabled:/etc/nginx/sites-enabled:ro
-      - ./nginx/snippets:/etc/nginx/snippets:ro
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
-
-      # SSL сертификаты (монтируются с хоста)
-      - /etc/letsencrypt:/etc/letsencrypt:ro
-
-      # Логи
-      - nginx_logs:/var/log/nginx
-    depends_on:
-      - frontend
-      - backend
-    networks:
-      - rabota_network
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
 volumes:
   postgres_data:
-    driver: local
-  nginx_logs:
-    driver: local
 
 networks:
   rabota_network:
