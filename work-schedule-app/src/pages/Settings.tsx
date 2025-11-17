@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Save, Plus, Trash2, ToggleLeft, ToggleRight, Edit } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Trash2, ToggleLeft, ToggleRight, Edit, Database, AlertTriangle } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
 import DraggableList from '../components/DraggableList';
 import { ShiftManager } from '../components/ShiftManager';
 import { ValidationRuleModal } from '../components/ValidationRuleModal';
 import { PreferenceReasonModal } from '../components/PreferenceReasonModal';
-import { validationRulesApi, preferenceReasonsApi, settingsApi, shiftsApi, employeeApi } from '../services/api';
+import { validationRulesApi, preferenceReasonsApi, settingsApi, shiftsApi, employeeApi, databaseApi } from '../services/api';
 import type { ValidationRule, PreferenceReason, Shift, Employee } from '../types';
 
-type Tab = 'general' | 'shifts' | 'rules' | 'reasons';
+type Tab = 'general' | 'shifts' | 'rules' | 'reasons' | 'database';
 
 const RULE_LABELS: Record<string, string> = {
   max_consecutive_shifts: 'Максимальное кол-во смен подряд',
@@ -44,10 +44,18 @@ export default function Settings() {
   const [editingRule, setEditingRule] = useState<ValidationRule | null>(null);
   const [reasonModalOpen, setReasonModalOpen] = useState(false);
   const [editingReason, setEditingReason] = useState<PreferenceReason | null>(null);
+  const [dbStats, setDbStats] = useState<any>(null);
+  const [isClearingDb, setIsClearingDb] = useState(false);
 
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (tab === 'database') {
+      loadDbStats();
+    }
+  }, [tab]);
 
   const loadData = async () => {
     setLoading(true);
@@ -73,6 +81,54 @@ export default function Settings() {
       console.error('Failed to load settings:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadDbStats = async () => {
+    try {
+      const stats = await databaseApi.getStats();
+      if (stats.success) {
+        setDbStats(stats.stats);
+      }
+    } catch (error) {
+      console.error('Failed to load database stats:', error);
+    }
+  };
+
+  const handleClearDatabase = async () => {
+    const confirmMessage = `⚠️ ВНИМАНИЕ! Это действие удалит ВСЕ данные из базы данных:\n\n` +
+      `• Все сотрудники: ${dbStats?.employees || 0}\n` +
+      `• Все смены: ${dbStats?.shifts || 0}\n` +
+      `• Весь график: ${dbStats?.schedule || 0} записей\n` +
+      `• Все правила валидации: ${dbStats?.validationRules || 0}\n` +
+      `• Все причины запросов: ${dbStats?.preferenceReasons || 0}\n` +
+      `• Все запросы сотрудников: ${dbStats?.employeePreferences || 0}\n` +
+      `• Все настройки: ${dbStats?.appSettings || 0}\n\n` +
+      `Восстановить данные будет невозможно!\n\n` +
+      `Для подтверждения введите: УДАЛИТЬ ВСЕ ДАННЫЕ`;
+
+    const confirmation = prompt(confirmMessage);
+
+    if (confirmation !== 'УДАЛИТЬ ВСЕ ДАННЫЕ') {
+      alert('Операция отменена.');
+      return;
+    }
+
+    setIsClearingDb(true);
+    try {
+      const result = await databaseApi.clearDatabase();
+      if (result.success) {
+        alert(`База данных успешно очищена!\n\n${result.message}\n\nОчищенные таблицы:\n${result.clearedTables.join(', ')}`);
+        // Перезагружаем статистику
+        await loadDbStats();
+        // Перезагружаем все данные
+        await loadData();
+      }
+    } catch (error) {
+      console.error('Failed to clear database:', error);
+      alert('Произошла ошибка при очистке базы данных. Пожалуйста, проверьте консоль для деталей.');
+    } finally {
+      setIsClearingDb(false);
     }
   };
 
@@ -270,6 +326,7 @@ export default function Settings() {
             { id: 'shifts', label: 'Часы работы и смены' },
             { id: 'rules', label: 'Правила валидации' },
             { id: 'reasons', label: 'Причины запросов' },
+            { id: 'database', label: 'База данных' },
           ].map(({ id, label }) => (
             <button
               key={id}
@@ -474,6 +531,110 @@ export default function Settings() {
                     </div>
                   )}
                 />
+              </div>
+            )}
+
+            {tab === 'database' && (
+              <div className="space-y-4 md:space-y-6">
+                {/* Database Statistics */}
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <Database className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                    <h2 className="text-lg md:text-xl font-bold text-gray-900 dark:text-gray-100">
+                      Статистика базы данных
+                    </h2>
+                  </div>
+
+                  {dbStats ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+                      <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 md:p-4">
+                        <div className="text-2xl md:text-3xl font-bold text-blue-600 dark:text-blue-400">
+                          {dbStats.employees || 0}
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">Сотрудники</div>
+                      </div>
+                      <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 md:p-4">
+                        <div className="text-2xl md:text-3xl font-bold text-green-600 dark:text-green-400">
+                          {dbStats.shifts || 0}
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">Смены</div>
+                      </div>
+                      <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 md:p-4">
+                        <div className="text-2xl md:text-3xl font-bold text-purple-600 dark:text-purple-400">
+                          {dbStats.schedule || 0}
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">Записи графика</div>
+                      </div>
+                      <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 md:p-4">
+                        <div className="text-2xl md:text-3xl font-bold text-orange-600 dark:text-orange-400">
+                          {dbStats.validationRules || 0}
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">Правила валидации</div>
+                      </div>
+                      <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 md:p-4">
+                        <div className="text-2xl md:text-3xl font-bold text-pink-600 dark:text-pink-400">
+                          {dbStats.preferenceReasons || 0}
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">Причины запросов</div>
+                      </div>
+                      <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 md:p-4">
+                        <div className="text-2xl md:text-3xl font-bold text-teal-600 dark:text-teal-400">
+                          {dbStats.employeePreferences || 0}
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">Запросы сотрудников</div>
+                      </div>
+                      <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 md:p-4">
+                        <div className="text-2xl md:text-3xl font-bold text-indigo-600 dark:text-indigo-400">
+                          {dbStats.appSettings || 0}
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">Настройки</div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                      Загрузка статистики...
+                    </div>
+                  )}
+                </div>
+
+                {/* Database Operations */}
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 md:p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-400" />
+                    <h2 className="text-lg md:text-xl font-bold text-red-900 dark:text-red-100">
+                      Опасные операции
+                    </h2>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg border border-red-200 dark:border-red-700 p-4">
+                      <h3 className="font-semibold text-red-900 dark:text-red-100 mb-2">
+                        Полная очистка базы данных
+                      </h3>
+                      <p className="text-sm text-red-700 dark:text-red-300 mb-4">
+                        ⚠️ <strong>Критически важное предупреждение:</strong> Эта действие безвозвратно удалит ВСЕ данные из базы данных:
+                        сотрудников, смены, график, правила, настройки и т.д. Структура базы данных сохранится.
+                      </p>
+                      <button
+                        onClick={handleClearDatabase}
+                        disabled={isClearingDb}
+                        className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white rounded-lg transition-colors font-medium disabled:cursor-not-allowed flex items-center gap-2"
+                      >
+                        {isClearingDb ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            Очистка...
+                          </>
+                        ) : (
+                          <>
+                            <Trash2 className="w-4 h-4" />
+                            Очистить всю базу данных
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </>

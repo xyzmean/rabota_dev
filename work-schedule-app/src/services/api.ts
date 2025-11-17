@@ -452,6 +452,54 @@ export const roleApi = {
   },
 };
 
+// === Auto Schedule API ===
+
+export const autoScheduleApi = {
+  generate: async (month: number, year: number): Promise<{ success: boolean; message: string; schedule: number }> => {
+    const response = await fetch(`${API_URL}/auto-schedule/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ month, year }),
+    });
+    return handleResponse<{ success: boolean; message: string; schedule: number }>(response);
+  },
+};
+
+// === Database API ===
+
+export const databaseApi = {
+  getStats: async (): Promise<{ success: boolean; stats: any; totalRecords: number }> => {
+    const response = await fetch(`${API_URL}/database/stats`);
+    return handleResponse<{ success: boolean; stats: any; totalRecords: number }>(response);
+  },
+
+  clearDatabase: async (): Promise<{ success: boolean; message: string; clearedTables: string[] }> => {
+    const response = await fetch(`${API_URL}/database/clear`, {
+      method: 'DELETE',
+    });
+    return handleResponse<{ success: boolean; message: string; clearedTables: string[] }>(response);
+  },
+
+  clearSchedule: async (month?: number, year?: number): Promise<{ success: boolean; message: string; deletedRecords: number }> => {
+    let url = `${API_URL}/database/schedule`;
+    const params = new URLSearchParams();
+
+    if (month !== undefined && year !== undefined) {
+      params.append('month', month.toString());
+      params.append('year', year.toString());
+    }
+
+    if (params.toString()) {
+      url += `?${params.toString()}`;
+    }
+
+    const response = await fetch(url, {
+      method: 'DELETE',
+    });
+    return handleResponse<{ success: boolean; message: string; deletedRecords: number }>(response);
+  },
+};
+
 // Health check
 export const healthCheck = async (): Promise<{ status: string }> => {
   const response = await fetch(`${API_URL.replace('/api', '')}/health`);
