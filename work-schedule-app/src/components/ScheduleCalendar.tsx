@@ -1,8 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, X, AlertCircle, AlertTriangle, Info, PlusCircle } from 'lucide-react';
-import { Employee, Shift, ScheduleEntry, ValidationViolation, ScheduleValidationResult, EmployeePreference, PreferenceReason, EmployeePreferenceInput } from '../types';
+import { ChevronLeft, ChevronRight, X, AlertCircle, AlertTriangle, Info } from 'lucide-react';
+import { Employee, Shift, ScheduleEntry, ValidationViolation, ScheduleValidationResult, EmployeePreference, PreferenceReason } from '../types';
 import { scheduleApi, preferencesApi } from '../services/api';
-import { DayOffRequestModal } from './DayOffRequestModal';
 import { DayOffRequestViewer } from './DayOffRequestViewer';
 
 interface ScheduleCalendarProps {
@@ -32,7 +31,6 @@ export function ScheduleCalendar({
   const [year, setYear] = useState(currentDate.getFullYear());
   const [activeCell, setActiveCell] = useState<{ employeeId: string; day: number; rect?: DOMRect } | null>(null);
   const [validationResult, setValidationResult] = useState<ScheduleValidationResult | null>(null);
-  const [requestModalOpen, setRequestModalOpen] = useState(false);
   const [viewingRequest, setViewingRequest] = useState<EmployeePreference | null>(null);
   const popupRef = useRef<HTMLDivElement>(null);
 
@@ -107,12 +105,6 @@ export function ScheduleCalendar({
         p.status === 'pending'
       );
     });
-  };
-
-  // Handle request creation
-  const handleCreateRequest = async (request: EmployeePreferenceInput) => {
-    await preferencesApi.create(request);
-    onPreferencesChange(); // Reload preferences from parent
   };
 
   // Handle request approval
@@ -263,32 +255,22 @@ export function ScheduleCalendar({
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 md:p-6">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
         <h2 className="text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-100">График работы</h2>
-        <div className="flex items-center gap-2 md:gap-4 w-full md:w-auto justify-between md:justify-end">
+        <div className="flex items-center gap-2">
           <button
-            onClick={() => setRequestModalOpen(true)}
-            className="flex items-center gap-2 px-3 py-2 bg-green-500 dark:bg-green-600 text-white rounded-lg hover:bg-green-600 dark:hover:bg-green-700 transition-colors text-sm md:text-base"
+            onClick={goToPreviousMonth}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
           >
-            <PlusCircle size={20} />
-            <span className="hidden sm:inline">Запросить выходной</span>
-            <span className="sm:hidden">Запрос</span>
+            <ChevronLeft size={24} className="text-gray-800 dark:text-gray-200" />
           </button>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={goToPreviousMonth}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-            >
-              <ChevronLeft size={24} className="text-gray-800 dark:text-gray-200" />
-            </button>
-            <span className="text-base md:text-lg font-semibold min-w-[120px] md:min-w-[200px] text-center text-gray-800 dark:text-gray-100">
-              {monthNames[month]} {year}
-            </span>
-            <button
-              onClick={goToNextMonth}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-            >
-              <ChevronRight size={24} className="text-gray-800 dark:text-gray-200" />
-            </button>
-          </div>
+          <span className="text-base md:text-lg font-semibold min-w-[120px] md:min-w-[200px] text-center text-gray-800 dark:text-gray-100">
+            {monthNames[month]} {year}
+          </span>
+          <button
+            onClick={goToNextMonth}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+          >
+            <ChevronRight size={24} className="text-gray-800 dark:text-gray-200" />
+          </button>
         </div>
       </div>
 
@@ -568,16 +550,6 @@ export function ScheduleCalendar({
             </ul>
           </div>
         </>
-      )}
-
-      {/* Day Off Request Modal */}
-      {requestModalOpen && (
-        <DayOffRequestModal
-          employees={employees}
-          reasons={reasons}
-          onSave={handleCreateRequest}
-          onClose={() => setRequestModalOpen(false)}
-        />
       )}
 
       {/* Day Off Request Viewer */}

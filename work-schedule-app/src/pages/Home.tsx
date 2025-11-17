@@ -1,40 +1,10 @@
-import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Settings as SettingsIcon, CalendarCheck } from 'lucide-react';
+import { Settings as SettingsIcon } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
 import EmployeeManager from '../components/EmployeeManager';
 import RoleManager from '../components/RoleManager';
-import { DayOffRequestModal } from '../components/DayOffRequestModal';
-import { employeeApi, preferenceReasonsApi, preferencesApi } from '../services/api';
-import { Employee, PreferenceReason, EmployeePreferenceInput } from '../types';
 
 export default function Home() {
-  const [requestModalOpen, setRequestModalOpen] = useState(false);
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [reasons, setReasons] = useState<PreferenceReason[]>([]);
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
-    try {
-      const [employeesData, reasonsData] = await Promise.all([
-        employeeApi.getAll(),
-        preferenceReasonsApi.getAll(),
-      ]);
-      setEmployees(employeesData);
-      setReasons(reasonsData);
-    } catch (err) {
-      console.error('Failed to load data:', err);
-    }
-  };
-
-  const handleCreateRequest = async (request: EmployeePreferenceInput) => {
-    await preferencesApi.create(request);
-    // Show success message
-    alert('Запрос на выходной успешно создан!');
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
@@ -46,15 +16,6 @@ export default function Home() {
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-6">
               <div className="order-2 sm:order-1 w-full sm:w-auto"></div>
               <div className="order-1 sm:order-2 flex gap-2 w-full sm:w-auto justify-end">
-                <button
-                  onClick={() => setRequestModalOpen(true)}
-                  className="flex items-center gap-2 px-3 py-2 md:px-4 rounded-lg bg-green-500 dark:bg-green-600 hover:bg-green-600 dark:hover:bg-green-700 text-white transition-colors shadow-md hover:shadow-lg text-sm md:text-base"
-                  title="Запросить выходной день"
-                >
-                  <CalendarCheck className="w-4 h-4 md:w-5 md:h-5" />
-                  <span className="hidden sm:inline">Запросить выходной</span>
-                  <span className="sm:hidden">Запрос</span>
-                </button>
                 <ThemeToggle />
                 <Link
                   to="/settings"
@@ -115,12 +76,15 @@ export default function Home() {
               </p>
             </Link>
 
-            {/* Placeholder for future features */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 md:p-8 opacity-50 cursor-not-allowed">
+            {/* Day Off Requests Card */}
+            <Link
+              to="/day-off-requests"
+              className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 md:p-8 hover:shadow-xl transition-shadow duration-300 border-2 border-transparent hover:border-green-500"
+            >
               <div className="flex items-center mb-3 md:mb-4">
-                <div className="bg-gray-100 p-2 md:p-3 rounded-lg">
+                <div className="bg-green-100 p-2 md:p-3 rounded-lg">
                   <svg
-                    className="w-6 h-6 md:w-8 md:h-8 text-gray-400"
+                    className="w-6 h-6 md:w-8 md:h-8 text-green-600"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -129,18 +93,18 @@ export default function Home() {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth={2}
-                      d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
                     />
                   </svg>
                 </div>
-                <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-400 ml-3 md:ml-4">
-                  Скоро
+                <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-100 ml-3 md:ml-4">
+                  Запросы на выходные
                 </h2>
               </div>
-              <p className="text-sm md:text-base text-gray-400">
-                Дополнительный функционал будет добавлен позже
+              <p className="text-sm md:text-base text-gray-600 dark:text-gray-300">
+                Создание и управление запросами сотрудников на выходные дни
               </p>
-            </div>
+            </Link>
           </div>
 
           {/* Quick Stats */}
@@ -217,16 +181,6 @@ export default function Home() {
           </div>
         </div>
       </div>
-
-      {/* Day Off Request Modal */}
-      {requestModalOpen && (
-        <DayOffRequestModal
-          employees={employees}
-          reasons={reasons}
-          onSave={handleCreateRequest}
-          onClose={() => setRequestModalOpen(false)}
-        />
-      )}
     </div>
   );
 }
