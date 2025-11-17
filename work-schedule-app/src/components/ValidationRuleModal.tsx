@@ -270,6 +270,135 @@ export function ValidationRuleModal({ rule, employees, onSave, onClose }: Valida
           </div>
         );
 
+      case 'max_employees_per_shift_type':
+        return (
+          <div className="space-y-3">
+            <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+              Лимиты для конкретных смен
+            </label>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Укажите максимальное количество сотрудников для каждой смены
+            </p>
+            {/* Это будет расширенная версия в будущем */}
+            <div className="p-3 bg-gray-50 dark:bg-gray-900/50 rounded border border-gray-200 dark:border-gray-600">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Для простоты настройки используйте поле "Применить к конкретным сотрудникам"
+              </p>
+            </div>
+          </div>
+        );
+
+      case 'required_coverage':
+        return (
+          <div>
+            <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+              Правила покрытия
+            </label>
+            <div className="p-3 bg-gray-50 dark:bg-gray-900/50 rounded border border-gray-200 dark:border-gray-600">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Эта функция будет доступна в следующих обновлениях
+              </p>
+            </div>
+          </div>
+        );
+
+      case 'manager_requirements':
+        return (
+          <div>
+            <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+              Минимальное количество менеджеров в день
+            </label>
+            <input
+              type="number"
+              min="0"
+              value={config.min_managers_per_day || 1}
+              onChange={(e) => handleConfigChange('min_managers_per_day', parseInt(e.target.value))}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+              Учитываются только сотрудники с правами управления
+            </p>
+          </div>
+        );
+
+      case 'coverage_by_time':
+        return (
+          <div>
+            <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+              Покрытие по временным диапазонам
+            </label>
+            <div className="p-3 bg-gray-50 dark:bg-gray-900/50 rounded border border-gray-200 dark:border-gray-600">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Эта функция будет доступна в следующих обновлениях
+              </p>
+            </div>
+          </div>
+        );
+
+      case 'coverage_by_day':
+        return (
+          <div>
+            <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+              Покрытие по дням
+            </label>
+            <div className="p-3 bg-gray-50 dark:bg-gray-900/50 rounded border border-gray-200 dark:border-gray-600">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Эта функция будет доступна в следующих обновлениях
+              </p>
+            </div>
+          </div>
+        );
+
+      case 'shift_type_limit_per_day':
+        return (
+          <div>
+            <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+              Лимиты типов смен в день
+            </label>
+            <div className="p-3 bg-gray-50 dark:bg-gray-900/50 rounded border border-gray-200 dark:border-gray-600">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Эта функция будет доступна в следующих обновлениях
+              </p>
+            </div>
+          </div>
+        );
+
+      case 'required_work_days':
+        return (
+          <div>
+            <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+              Обязательные рабочие дни недели
+            </label>
+            <div className="space-y-2">
+              {['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'].map((day, index) => (
+                <div key={day} className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id={`day-${index}`}
+                    checked={(config.days_of_week || []).includes(index + 1) || (index === 6 && (config.days_of_week || []).includes(0))}
+                    onChange={(e) => {
+                      const currentDays = config.days_of_week || [];
+                      const dayIndex = index === 6 ? 0 : index + 1; // Воскресенье = 0
+                      if (e.target.checked) {
+                        handleConfigChange('days_of_week', [...currentDays, dayIndex]);
+                      } else {
+                        handleConfigChange('days_of_week', currentDays.filter((d: number) => d !== dayIndex));
+                      }
+                    }}
+                    className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                  />
+                  <label htmlFor={`day-${index}`} className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                    {day}
+                  </label>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+              В эти дни должен быть хотя бы один сотрудник на смене
+            </p>
+          </div>
+        );
+
       default:
         return (
           <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">

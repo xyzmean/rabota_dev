@@ -166,7 +166,7 @@ export interface EmployeePreferenceInput {
 // Результаты валидации
 export interface ValidationViolation {
   type: ValidationRuleType;
-  severity: 'error' | 'warning';
+  severity: 'error' | 'warning' | 'info';
   message: string;
   employeeId?: string;
   date?: string; // YYYY-MM-DD
