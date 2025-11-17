@@ -251,20 +251,20 @@ export default function Settings() {
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-      <header className="bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-700 dark:to-blue-800 text-white p-4 shadow-md">
+      <header className="bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-700 dark:to-blue-800 text-white p-3 md:p-4 shadow-md">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4">
             <Link to="/" className="hover:bg-white/10 p-2 rounded-lg transition">
-              <ArrowLeft className="w-6 h-6" />
+              <ArrowLeft className="w-5 h-5 md:w-6 md:h-6" />
             </Link>
-            <h1 className="text-2xl font-bold">Настройки</h1>
+            <h1 className="text-lg sm:text-xl md:text-2xl font-bold">Настройки</h1>
           </div>
           <ThemeToggle />
         </div>
       </header>
 
-      <div className="max-w-6xl mx-auto p-6">
-        <div className="flex gap-2 mb-6 border-b border-gray-300 dark:border-gray-700">
+      <div className="max-w-6xl mx-auto p-4 md:p-6">
+        <div className="flex gap-1 md:gap-2 mb-4 md:mb-6 border-b border-gray-300 dark:border-gray-700 overflow-x-auto">
           {[
             { id: 'general', label: 'Общие' },
             { id: 'shifts', label: 'Часы работы и смены' },
@@ -274,7 +274,7 @@ export default function Settings() {
             <button
               key={id}
               onClick={() => setTab(id as Tab)}
-              className={`px-4 py-2 font-medium transition ${
+              className={`px-3 md:px-4 py-2 font-medium transition whitespace-nowrap text-sm md:text-base ${
                 tab === id
                   ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
@@ -290,12 +290,12 @@ export default function Settings() {
         ) : (
           <>
             {tab === 'general' && (
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">Основные настройки</h2>
-                <div className="space-y-4">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6">
+                <h2 className="text-lg md:text-xl font-bold mb-3 md:mb-4 text-gray-900 dark:text-gray-100">Основные настройки</h2>
+                <div className="space-y-3 md:space-y-4">
                   <div>
                     <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Тема оформления</label>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Используйте переключатель в шапке для смены темы</p>
+                    <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Используйте переключатель в шапке для смены темы</p>
                   </div>
                 </div>
               </div>
@@ -304,11 +304,11 @@ export default function Settings() {
             {tab === 'shifts' && (
               <div className="space-y-6">
                 {/* Business Hours Section */}
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                  <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6">
+                  <h2 className="text-lg md:text-xl font-bold mb-3 md:mb-4 text-gray-900 dark:text-gray-100">
                     Часы работы предприятия
                   </h2>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mb-3 md:mb-4">
                     Установите время начала и окончания работы предприятия
                   </p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -338,15 +338,15 @@ export default function Settings() {
                   <button
                     onClick={saveBusinessHours}
                     disabled={saving}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center gap-2 px-3 md:px-4 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm md:text-base w-full sm:w-auto"
                   >
-                    <Save className="w-5 h-5" />
-                    {saving ? 'Сохранение...' : 'Сохранить часы работы'}
+                    <Save className="w-4 h-4 md:w-5 md:h-5" />
+                    <span>{saving ? 'Сохранение...' : 'Сохранить часы работы'}</span>
                   </button>
                 </div>
 
                 {/* Shifts Manager Section */}
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6">
                   <ShiftManager
                     shifts={shifts}
                     onAddShift={handleAddShift}
@@ -358,22 +358,23 @@ export default function Settings() {
             )}
 
             {tab === 'rules' && (
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
+                  <div className="flex-1">
+                    <h2 className="text-lg md:text-xl font-bold text-gray-900 dark:text-gray-100">
                       Правила валидации графика
                     </h2>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mt-1">
                       Перетаскивайте правила для изменения приоритета (верхние = выше приоритет)
                     </p>
                   </div>
                   <button
                     onClick={handleAddRule}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors"
+                    className="flex items-center gap-2 px-3 md:px-4 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors text-sm md:text-base w-full sm:w-auto"
                   >
-                    <Plus className="w-5 h-5" />
-                    Добавить правило
+                    <Plus className="w-4 h-4 md:w-5 md:h-5" />
+                    <span className="hidden sm:inline">Добавить правило</span>
+                    <span className="sm:hidden">Добавить</span>
                   </button>
                 </div>
                 <DraggableList
@@ -424,9 +425,9 @@ export default function Settings() {
             )}
 
             {tab === 'reasons' && (
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 md:mb-4 gap-3">
+                  <h2 className="text-lg md:text-xl font-bold text-gray-900 dark:text-gray-100">
                     Причины для запросов сотрудников
                   </h2>
                   <button
@@ -434,13 +435,14 @@ export default function Settings() {
                       setEditingReason(null);
                       setReasonModalOpen(true);
                     }}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors"
+                    className="flex items-center gap-2 px-3 md:px-4 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors text-sm md:text-base w-full sm:w-auto"
                   >
-                    <Plus className="w-5 h-5" />
-                    Добавить причину
+                    <Plus className="w-4 h-4 md:w-5 md:h-5" />
+                    <span className="hidden sm:inline">Добавить причину</span>
+                    <span className="sm:hidden">Добавить</span>
                   </button>
                 </div>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mb-3 md:mb-4">
                   Перетаскивайте причины для изменения приоритета (верхние = выше приоритет)
                 </p>
                 <DraggableList

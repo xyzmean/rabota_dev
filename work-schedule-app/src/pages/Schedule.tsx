@@ -131,27 +131,27 @@ export default function Schedule() {
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
       <header className="bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-700 dark:to-blue-800 text-white shadow-lg">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold">Управление графиком работы</h1>
-              <p className="text-blue-100 dark:text-blue-200 mt-1">Современная система планирования рабочих смен</p>
+        <div className="container mx-auto px-4 py-4 md:py-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+            <div className="flex-1">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">Управление графиком работы</h1>
+              <p className="text-blue-100 dark:text-blue-200 mt-1 text-sm md:text-base">Современная система планирования рабочих смен</p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 w-full sm:w-auto justify-end">
               <Link
                 to="/settings"
-                className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 dark:bg-white/10 dark:hover:bg-white/20 rounded-lg transition-colors"
+                className="flex items-center gap-2 px-3 py-2 md:px-4 bg-white/10 hover:bg-white/20 dark:bg-white/10 dark:hover:bg-white/20 rounded-lg transition-colors text-sm md:text-base"
                 title="Настройки смен и часов работы"
               >
-                <SettingsIcon size={20} />
-                <span>Настройки</span>
+                <SettingsIcon size={18} className="md:w-5 md:h-5" />
+                <span className="hidden sm:inline">Настройки</span>
               </Link>
               <Link
                 to="/"
-                className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 dark:bg-white/10 dark:hover:bg-white/20 rounded-lg transition-colors"
+                className="flex items-center gap-2 px-3 py-2 md:px-4 bg-white/10 hover:bg-white/20 dark:bg-white/10 dark:hover:bg-white/20 rounded-lg transition-colors text-sm md:text-base"
               >
-                <Home size={20} />
-                <span>Главная</span>
+                <Home size={18} className="md:w-5 md:h-5" />
+                <span className="hidden sm:inline">Главная</span>
               </Link>
             </div>
           </div>
@@ -172,19 +172,19 @@ export default function Schedule() {
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md mb-6">
-          <nav className="flex border-b border-gray-200 dark:border-gray-700">
+          <nav className="flex border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => handleTabChange(tab.id)}
-                className={`flex items-center gap-2 px-6 py-4 font-medium transition-colors border-b-2 ${
+                className={`flex items-center gap-2 px-4 md:px-6 py-3 md:py-4 font-medium transition-colors border-b-2 whitespace-nowrap text-sm md:text-base ${
                   activeTab === tab.id
                     ? 'border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
                     : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50'
                 }`}
               >
-                {tab.icon}
-                {tab.label}
+                <span className="w-5 h-5 flex-shrink-0">{tab.icon}</span>
+                <span className="hidden sm:inline">{tab.label}</span>
               </button>
             ))}
           </nav>
@@ -218,7 +218,7 @@ export default function Schedule() {
         </div>
       </div>
 
-      <footer className="mt-12 py-6 text-center text-gray-600 dark:text-gray-400 text-sm">
+      <footer className="mt-8 md:mt-12 py-4 md:py-6 text-center text-gray-600 dark:text-gray-400 text-xs md:text-sm">
         <p>RaboTA © {new Date().getFullYear()} | Система управления графиком работы</p>
       </footer>
 

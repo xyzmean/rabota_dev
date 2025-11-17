@@ -79,15 +79,16 @@ export function ShiftManager({ shifts, onAddShift, onEditShift, onDeleteShift }:
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Управление сменами</h2>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
+        <h2 className="text-lg md:text-xl font-bold text-gray-900 dark:text-gray-100">Управление сменами</h2>
         {!isAdding && (
           <button
             onClick={() => setIsAdding(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors"
+            className="flex items-center gap-2 px-3 md:px-4 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors text-sm md:text-base w-full sm:w-auto"
           >
-            <Plus size={20} />
-            Добавить смену
+            <Plus size={18} className="md:w-5 md:h-5" />
+            <span className="hidden sm:inline">Добавить смену</span>
+            <span className="sm:hidden">Добавить</span>
           </button>
         )}
       </div>
@@ -221,17 +222,17 @@ export function ShiftManager({ shifts, onAddShift, onEditShift, onDeleteShift }:
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Установите время начала и окончания смены, а также количество рабочих часов</p>
 
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <button
               type="submit"
-              className="px-4 py-2 bg-green-500 dark:bg-green-600 text-white rounded-lg hover:bg-green-600 dark:hover:bg-green-700 transition-colors"
+              className="px-4 py-2 bg-green-500 dark:bg-green-600 text-white rounded-lg hover:bg-green-600 dark:hover:bg-green-700 transition-colors text-sm md:text-base"
             >
               {editingId ? 'Сохранить изменения' : 'Добавить смену'}
             </button>
             <button
               type="button"
               onClick={handleCancel}
-              className="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-700 transition-colors"
+              className="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-700 transition-colors text-sm md:text-base"
             >
               Отмена
             </button>
@@ -243,20 +244,20 @@ export function ShiftManager({ shifts, onAddShift, onEditShift, onDeleteShift }:
         {shifts.map((shift) => (
           <div
             key={shift.id}
-            className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-shadow bg-white dark:bg-gray-800"
+            className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-shadow bg-white dark:bg-gray-800 gap-3 sm:gap-0"
           >
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 md:gap-3 flex-1">
               <div
-                className="w-14 h-14 rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-sm"
+                className="w-12 h-12 md:w-14 md:h-14 rounded-lg flex items-center justify-center text-white font-bold text-lg md:text-xl shadow-sm flex-shrink-0"
                 style={{ backgroundColor: shift.color }}
               >
                 {shift.abbreviation}
               </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="font-semibold text-gray-800 dark:text-gray-200">{shift.name}</p>
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-1.5 md:gap-2">
+                  <p className="font-semibold text-sm md:text-base text-gray-800 dark:text-gray-200 truncate">{shift.name}</p>
                   {shift.isDefault && (
-                    <span className="text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-0.5 rounded">По умолчанию</span>
+                    <span className="text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-1.5 md:px-2 py-0.5 rounded whitespace-nowrap">По умолчанию</span>
                   )}
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">{shift.color.toUpperCase()}</p>
@@ -265,10 +266,10 @@ export function ShiftManager({ shifts, onAddShift, onEditShift, onDeleteShift }:
                     {shift.startTime} - {shift.endTime}
                   </p>
                 )}
-                <p className="text-sm font-semibold text-blue-600 dark:text-blue-400 mt-1">{shift.hours} ч</p>
+                <p className="text-xs md:text-sm font-semibold text-blue-600 dark:text-blue-400 mt-1">{shift.hours} ч</p>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 w-full sm:w-auto justify-end">
               <button
                 onClick={() => handleEdit(shift)}
                 disabled={shift.isDefault}
@@ -279,7 +280,7 @@ export function ShiftManager({ shifts, onAddShift, onEditShift, onDeleteShift }:
                 }`}
                 title={shift.isDefault ? 'Нельзя редактировать' : 'Редактировать'}
               >
-                <Edit2 size={18} />
+                <Edit2 size={16} className="md:w-[18px] md:h-[18px]" />
               </button>
               <button
                 onClick={() => handleDelete(shift)}
@@ -291,7 +292,7 @@ export function ShiftManager({ shifts, onAddShift, onEditShift, onDeleteShift }:
                 }`}
                 title={shift.isDefault ? 'Нельзя удалить' : 'Удалить'}
               >
-                <Trash2 size={18} />
+                <Trash2 size={16} className="md:w-[18px] md:h-[18px]" />
               </button>
             </div>
           </div>

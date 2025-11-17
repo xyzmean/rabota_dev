@@ -41,50 +41,59 @@ export default function Home() {
       <div className="container mx-auto px-4 py-16">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
-          <div className="text-center mb-12 relative">
-            <div className="absolute top-0 right-0 flex gap-2">
-              <button
-                onClick={() => setRequestModalOpen(true)}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-500 dark:bg-green-600 hover:bg-green-600 dark:hover:bg-green-700 text-white transition-colors shadow-md hover:shadow-lg"
-                title="Запросить выходной день"
-              >
-                <CalendarCheck className="w-5 h-5" />
-                <span className="hidden sm:inline">Запросить выходной</span>
-              </button>
-              <ThemeToggle />
-              <Link
-                to="/settings"
-                className="p-2 rounded-lg bg-white/50 dark:bg-gray-800/50 hover:bg-white/80 dark:hover:bg-gray-800/80 transition-colors"
-                title="Настройки"
-              >
-                <SettingsIcon className="w-5 h-5 text-gray-800 dark:text-gray-200" />
-              </Link>
+          <div className="mb-8 md:mb-12">
+            {/* Top Controls - Mobile: Stacked, Desktop: Row */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-6">
+              <div className="order-2 sm:order-1 w-full sm:w-auto"></div>
+              <div className="order-1 sm:order-2 flex gap-2 w-full sm:w-auto justify-end">
+                <button
+                  onClick={() => setRequestModalOpen(true)}
+                  className="flex items-center gap-2 px-3 py-2 md:px-4 rounded-lg bg-green-500 dark:bg-green-600 hover:bg-green-600 dark:hover:bg-green-700 text-white transition-colors shadow-md hover:shadow-lg text-sm md:text-base"
+                  title="Запросить выходной день"
+                >
+                  <CalendarCheck className="w-4 h-4 md:w-5 md:h-5" />
+                  <span className="hidden sm:inline">Запросить выходной</span>
+                  <span className="sm:hidden">Запрос</span>
+                </button>
+                <ThemeToggle />
+                <Link
+                  to="/settings"
+                  className="p-2 rounded-lg bg-white/50 dark:bg-gray-800/50 hover:bg-white/80 dark:hover:bg-gray-800/80 transition-colors"
+                  title="Настройки"
+                >
+                  <SettingsIcon className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+                </Link>
+              </div>
             </div>
-            <h1 className="text-5xl font-bold text-gray-800 dark:text-gray-100 mb-4">
-              RaboTA
-            </h1>
-            <p className="text-xl text-gray-600 dark:text-gray-300">
-              Внутренний сайт для управления рабочими процессами
-            </p>
+
+            {/* Title */}
+            <div className="text-center">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-800 dark:text-gray-100 mb-3 md:mb-4">
+                RaboTA
+              </h1>
+              <p className="text-base sm:text-lg md:text-xl text-gray-600 dark:text-gray-300 px-4">
+                Внутренний сайт для управления рабочими процессами
+              </p>
+            </div>
           </div>
 
           {/* Управление сотрудниками и ролями */}
-          <div className="grid lg:grid-cols-2 gap-6 mb-12">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-8 md:mb-12">
             <EmployeeManager />
             <RoleManager />
           </div>
 
           {/* Feature Cards */}
-          <div className="grid md:grid-cols-2 gap-6 mb-12">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-8 md:mb-12">
             {/* Schedule Card */}
             <Link
               to="/schedule"
-              className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 hover:shadow-xl transition-shadow duration-300 border-2 border-transparent hover:border-indigo-500"
+              className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 md:p-8 hover:shadow-xl transition-shadow duration-300 border-2 border-transparent hover:border-indigo-500"
             >
-              <div className="flex items-center mb-4">
-                <div className="bg-indigo-100 p-3 rounded-lg">
+              <div className="flex items-center mb-3 md:mb-4">
+                <div className="bg-indigo-100 p-2 md:p-3 rounded-lg">
                   <svg
-                    className="w-8 h-8 text-indigo-600"
+                    className="w-6 h-6 md:w-8 md:h-8 text-indigo-600"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -97,21 +106,21 @@ export default function Home() {
                     />
                   </svg>
                 </div>
-                <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 ml-4">
+                <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-100 ml-3 md:ml-4">
                   График работы
                 </h2>
               </div>
-              <p className="text-gray-600 dark:text-gray-300">
+              <p className="text-sm md:text-base text-gray-600 dark:text-gray-300">
                 Управление сотрудниками, создание смен и планирование графика работы
               </p>
             </Link>
 
             {/* Placeholder for future features */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 opacity-50 cursor-not-allowed">
-              <div className="flex items-center mb-4">
-                <div className="bg-gray-100 p-3 rounded-lg">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 md:p-8 opacity-50 cursor-not-allowed">
+              <div className="flex items-center mb-3 md:mb-4">
+                <div className="bg-gray-100 p-2 md:p-3 rounded-lg">
                   <svg
-                    className="w-8 h-8 text-gray-400"
+                    className="w-6 h-6 md:w-8 md:h-8 text-gray-400"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -124,25 +133,25 @@ export default function Home() {
                     />
                   </svg>
                 </div>
-                <h2 className="text-2xl font-bold text-gray-400 ml-4">
+                <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-400 ml-3 md:ml-4">
                   Скоро
                 </h2>
               </div>
-              <p className="text-gray-400">
+              <p className="text-sm md:text-base text-gray-400">
                 Дополнительный функционал будет добавлен позже
               </p>
             </div>
           </div>
 
           {/* Quick Stats */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8">
-            <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 md:p-8">
+            <h3 className="text-lg md:text-xl font-semibold text-gray-800 dark:text-gray-100 mb-3 md:mb-4">
               Возможности
             </h3>
-            <ul className="space-y-3">
-              <li className="flex items-center text-gray-700 dark:text-gray-300">
+            <ul className="space-y-2 md:space-y-3">
+              <li className="flex items-start text-sm md:text-base text-gray-700 dark:text-gray-300">
                 <svg
-                  className="w-5 h-5 text-green-500 mr-3"
+                  className="w-5 h-5 text-green-500 mr-2 md:mr-3 flex-shrink-0 mt-0.5"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -154,11 +163,11 @@ export default function Home() {
                     d="M5 13l4 4L19 7"
                   />
                 </svg>
-                Управление сотрудниками и сменами
+                <span>Управление сотрудниками и сменами</span>
               </li>
-              <li className="flex items-center text-gray-700">
+              <li className="flex items-start text-sm md:text-base text-gray-700 dark:text-gray-300">
                 <svg
-                  className="w-5 h-5 text-green-500 mr-3"
+                  className="w-5 h-5 text-green-500 mr-2 md:mr-3 flex-shrink-0 mt-0.5"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -170,11 +179,11 @@ export default function Home() {
                     d="M5 13l4 4L19 7"
                   />
                 </svg>
-                Визуальный календарь с назначением смен
+                <span>Визуальный календарь с назначением смен</span>
               </li>
-              <li className="flex items-center text-gray-700">
+              <li className="flex items-start text-sm md:text-base text-gray-700 dark:text-gray-300">
                 <svg
-                  className="w-5 h-5 text-green-500 mr-3"
+                  className="w-5 h-5 text-green-500 mr-2 md:mr-3 flex-shrink-0 mt-0.5"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -186,11 +195,11 @@ export default function Home() {
                     d="M5 13l4 4L19 7"
                   />
                 </svg>
-                Автоматическое сохранение данных в браузере
+                <span>Автоматическое сохранение данных в браузере</span>
               </li>
-              <li className="flex items-center text-gray-400">
+              <li className="flex items-start text-sm md:text-base text-gray-400">
                 <svg
-                  className="w-5 h-5 text-gray-300 mr-3"
+                  className="w-5 h-5 text-gray-300 mr-2 md:mr-3 flex-shrink-0 mt-0.5"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -202,7 +211,7 @@ export default function Home() {
                     d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                   />
                 </svg>
-                Дополнительные инструменты (в разработке)
+                <span>Дополнительные инструменты (в разработке)</span>
               </li>
             </ul>
           </div>
