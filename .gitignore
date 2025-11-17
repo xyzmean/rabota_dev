@@ -12,8 +12,8 @@ dist
 dist-ssr
 *.local
 
-# Локальные файлы для настройки
-nginx
+# Локальные файлы для настройки (раскомментировать если нужно исключить nginx)
+# nginx
 
 
 # Environment variables
