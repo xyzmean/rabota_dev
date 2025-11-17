@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Users, Home, Settings as SettingsIcon, Trash2, AlertTriangle } from 'lucide-react';
+import { Calendar, Users, Home, Settings as SettingsIcon, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import EmployeeManager from '../components/EmployeeManager';
 import { ScheduleCalendar } from '../components/ScheduleCalendar';

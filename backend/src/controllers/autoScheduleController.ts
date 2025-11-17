@@ -152,16 +152,6 @@ async function generateOptimalSchedule(
   const schedule: ScheduleEntry[] = [];
   const workingShifts = shifts.filter(s => s.id !== 'day-off');
 
-  // Определяем выходные дни (суббота и воскресенье)
-  const weekendDays = [];
-  for (let day = 1; day <= daysInMonth; day++) {
-    const date = new Date(year, month, day);
-    const dayOfWeek = date.getDay();
-    if (dayOfWeek === 0 || dayOfWeek === 6) { // Воскресенье или суббота
-      weekendDays.push(day);
-    }
-  }
-
   // Создаем множества для быстрой проверки одобренных выходных
   const approvedDayOffsSet = new Map<string, Set<string>>();
   for (const dayOff of approvedDayOffs) {
@@ -171,19 +161,8 @@ async function generateOptimalSchedule(
     approvedDayOffsSet.get(dayOff.employeeId)!.add(dayOff.date);
   }
 
-  // Сначала заполняем выходные дни и одобренные выходные
+  // Добавляем только одобренные выходные дни (не делаем автоматических выходных в сб/вс)
   for (const employee of employees) {
-    for (const day of weekendDays) {
-      schedule.push({
-        employee_id: employee.id,
-        day,
-        month,
-        year,
-        shift_id: 'day-off'
-      });
-    }
-
-    // Добавляем одобренные выходные дни
     for (const dayOff of approvedDayOffs) {
       if (dayOff.employeeId === employee.id) {
         // Преобразуем дату в строку формата YYYY-MM-DD
@@ -192,7 +171,7 @@ async function generateOptimalSchedule(
         if (dateValue instanceof Date) {
           dateStr = dateValue.toISOString().split('T')[0];
         } else if (typeof dateValue === 'string') {
-          dateStr = dateValue;
+          dateStr = dayOff.date;
         } else {
           dateStr = String(dateValue);
         }
@@ -213,8 +192,6 @@ async function generateOptimalSchedule(
 
   // Для каждого дня месяца генерируем оптимальное распределение
   for (let day = 1; day <= daysInMonth; day++) {
-    if (weekendDays.includes(day)) continue; // Пропускаем выходные
-
     // Проверяем, есть ли одобренные выходные на этот день
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const employeesWithDayOff = new Set<string>();
@@ -232,7 +209,7 @@ async function generateOptimalSchedule(
     // Проверяем, не работает ли сотрудник уже много дней подряд
     const filteredEmployees = availableEmployees.filter(emp => {
       const consecutiveWorkDays = getConsecutiveWorkDays(emp.id, day, schedule);
-      // Ищем правило максимальных рабочих дней подряд
+      // Ищем правило максимальных рабочих дней подряд (объединенные типы)
       const maxConsecutiveRule = validationRules.find(r =>
         r.rule_type === 'max_consecutive_work_days' || r.rule_type === 'max_consecutive_shifts'
       );
@@ -352,10 +329,14 @@ function generateScheduleVariants(
     return variants;
   }
 
-  // Вариант 1: всем по одной смене, равномерное распределение
+  const allShifts = [...shifts];
+  // Добавляем выходной смену как вариант для генерации
+  allShifts.push({ id: 'day-off', name: 'Выходной', abbreviation: 'В', color: '#ef4444', hours: 0, is_default: false });
+
+  // Вариант 1: всем по одной смене, равномерное распределение (без выходных)
   const equalVariant: ScheduleEntry[] = [];
   for (let i = 0; i < employees.length; i++) {
-    const shiftIndex = i % shifts.length;
+    const shiftIndex = i % shifts.length; // Только рабочие смены
     equalVariant.push({
       employee_id: employees[i].id,
       day,
@@ -366,7 +347,21 @@ function generateScheduleVariants(
   }
   variants.push(equalVariant);
 
-  // Вариант 2: первые сотрудники в первую смену, остальные во вторую
+  // Вариант 2: равномерное распределение с возможными выходными
+  const equalWithDaysOffVariant: ScheduleEntry[] = [];
+  for (let i = 0; i < employees.length; i++) {
+    const shiftIndex = i % allShifts.length; // Все смены включая выходные
+    equalWithDaysOffVariant.push({
+      employee_id: employees[i].id,
+      day,
+      month,
+      year,
+      shift_id: allShifts[shiftIndex].id
+    });
+  }
+  variants.push(equalWithDaysOffVariant);
+
+  // Вариант 3: первые сотрудники в первую смену, остальные во вторую
   if (shifts.length >= 2 && employees.length >= 2) {
     const firstShiftVariant: ScheduleEntry[] = [];
     const half = Math.ceil(employees.length / 2);
@@ -384,8 +379,36 @@ function generateScheduleVariants(
     variants.push(firstShiftVariant);
   }
 
-  // Вариант 3: только одна смена для всех
-  if (employees.length <= 4) {
+  // Вариант 4: часть сотрудников работают, часть выходной
+  if (employees.length >= 2) {
+    const mixedVariant: ScheduleEntry[] = [];
+    const workingCount = Math.ceil(employees.length * 0.7); // 70% работают
+
+    for (let i = 0; i < employees.length; i++) {
+      if (i < workingCount && shifts.length > 0) {
+        const shiftIndex = i % shifts.length;
+        mixedVariant.push({
+          employee_id: employees[i].id,
+          day,
+          month,
+          year,
+          shift_id: shifts[shiftIndex].id
+        });
+      } else {
+        mixedVariant.push({
+          employee_id: employees[i].id,
+          day,
+          month,
+          year,
+          shift_id: 'day-off'
+        });
+      }
+    }
+    variants.push(mixedVariant);
+  }
+
+  // Вариант 5: только одна смена для всех
+  if (employees.length <= 4 && shifts.length > 0) {
     for (const shift of shifts) {
       const singleShiftVariant: ScheduleEntry[] = [];
       for (const employee of employees) {
@@ -401,7 +424,7 @@ function generateScheduleVariants(
     }
   }
 
-  // Вариант 4: минимум сотрудников (по 1-2 на смену)
+  // Вариант 6: минимум сотрудников (по 1-2 на смену)
   if (employees.length >= shifts.length) {
     const minimalVariant: ScheduleEntry[] = [];
     for (let i = 0; i < shifts.length && i < employees.length; i++) {
@@ -416,7 +439,7 @@ function generateScheduleVariants(
     variants.push(minimalVariant);
   }
 
-  // Вариант 5: чередование через одного
+  // Вариант 7: чередование через одного
   if (shifts.length >= 2 && employees.length >= 3) {
     const alternatingVariant: ScheduleEntry[] = [];
     for (let i = 0; i < employees.length; i++) {
@@ -493,9 +516,9 @@ function evaluateRulePass(
       case 'max_employees_per_shift':
         return evaluateMaxEmployeesPerShiftPass(rule, fullSchedule);
       case 'max_consecutive_work_days':
-        return evaluateMaxConsecutiveWorkDaysPass(rule, fullSchedule);
       case 'max_consecutive_shifts':
-        return evaluateMaxConsecutiveShiftsPass(rule, fullSchedule);
+        // Объединяем эти правила - они делают одно и то же
+        return evaluateMaxConsecutiveWorkDaysPass(rule, fullSchedule);
       case 'required_work_days':
         return evaluateRequiredWorkDaysPass(rule, currentVariant);
       default:
@@ -680,23 +703,6 @@ function evaluateMaxConsecutiveWorkDays(
   return totalCount > 0 ? (satisfiedCount / totalCount) * 100 : 0;
 }
 
-// Проверка правила максимального количества смен подряд
-function evaluateMaxConsecutiveShiftsPass(
-  rule: ValidationRule,
-  schedule: ScheduleEntry[]
-): boolean {
-  // По сути то же самое, что и рабочие дни подряд
-  return evaluateMaxConsecutiveWorkDaysPass(rule, schedule);
-}
-
-// Оценка правила максимального количества смен подряд
-function evaluateMaxConsecutiveShifts(
-  rule: ValidationRule,
-  schedule: ScheduleEntry[]
-): number {
-  // По сути то же самое, что и рабочие дни подряд
-  return evaluateMaxConsecutiveWorkDays(rule, schedule);
-}
 
 // Проверка обязательных рабочих дней
 function evaluateRequiredWorkDaysPass(
