@@ -124,7 +124,7 @@ export default function EmployeeManager() {
         {!isAdding && (
           <button
             onClick={() => setIsAdding(true)}
-            className="flex items-center gap-2 px-3 md:px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm md:text-base w-full sm:w-auto"
+            className="flex items-center gap-2 px-3 md:px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all duration-150 active:bg-green-700 active:scale-95 touch-manipulation text-sm md:text-base w-full sm:w-auto min-h-[44px]"
           >
             <Plus size={18} className="md:w-5 md:h-5" />
             <span className="hidden sm:inline">Добавить сотрудника</span>
@@ -265,14 +265,14 @@ export default function EmployeeManager() {
             <div className="flex gap-2 w-full sm:w-auto justify-end">
               <button
                 onClick={() => handleEdit(employee)}
-                className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-all duration-150 active:bg-blue-100 dark:active:bg-blue-900/40 active:scale-95 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
                 title="Редактировать"
               >
                 <Edit2 size={16} className="md:w-[18px] md:h-[18px]" />
               </button>
               <button
                 onClick={() => handleDelete(employee.id)}
-                className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-all duration-150 active:bg-red-100 dark:active:bg-red-900/40 active:scale-95 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
                 title="Удалить"
               >
                 <Trash2 size={16} className="md:w-[18px] md:h-[18px]" />

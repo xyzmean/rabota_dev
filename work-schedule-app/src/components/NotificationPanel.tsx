@@ -82,20 +82,20 @@ export function NotificationPanel({
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
       {/* Header */}
       <div
-        className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 text-white cursor-pointer"
+        className="flex items-center justify-between p-3 md:p-4 bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 text-white cursor-pointer touch-manipulation active:bg-blue-700 dark:active:bg-blue-800 transition-colors"
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
           {pendingCount > 0 ? (
-            <BellDot className="w-6 h-6 animate-pulse" />
+            <BellDot className="w-5 h-5 md:w-6 md:h-6 animate-pulse flex-shrink-0" />
           ) : (
-            <Bell className="w-6 h-6" />
+            <Bell className="w-5 h-5 md:w-6 md:h-6 flex-shrink-0" />
           )}
-          <h2 className="text-lg font-semibold">
+          <h2 className="text-sm md:text-lg font-semibold truncate">
             Уведомления о запросах
           </h2>
           {pendingCount > 0 && (
-            <span className="px-2 py-1 bg-red-500 dark:bg-red-600 text-white text-xs font-bold rounded-full">
+            <span className="px-1.5 py-0.5 md:px-2 md:py-1 bg-red-500 dark:bg-red-600 text-white text-xs md:text-xs font-bold rounded-full flex-shrink-0">
               {pendingCount}
             </span>
           )}
@@ -116,15 +116,15 @@ export function NotificationPanel({
       {isExpanded && (
         <div className="p-4 border-t border-gray-200 dark:border-gray-700">
           {/* Filters */}
-          <div className="flex gap-2 mb-4 flex-wrap">
+          <div className="flex gap-1.5 md:gap-2 mb-3 md:mb-4 flex-wrap">
             {(['all', 'pending', 'approved', 'rejected'] as const).map((status) => (
               <button
                 key={status}
                 onClick={() => setFilter(status)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                className={`px-2 py-1.5 md:px-3 md:py-1.5 rounded-lg text-xs md:text-sm font-medium transition-all duration-150 touch-manipulation active:scale-95 ${
                   filter === status
                     ? 'bg-blue-500 dark:bg-blue-600 text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 active:bg-gray-300 dark:active:bg-gray-500'
                 }`}
               >
                 {status === 'all' ? 'Все' : statusLabels[status]}
@@ -164,9 +164,9 @@ export function NotificationPanel({
                     <div
                       key={pref.id}
                       onClick={() => onViewDetails(pref)}
-                      className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors"
+                      className="p-3 md:p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-all duration-150 active:bg-gray-100 dark:active:bg-gray-700 active:scale-98 touch-manipulation"
                     >
-                      <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start justify-between gap-2 md:gap-3">
                         <div className="flex-1 min-w-0">
                           {/* Employee and Date */}
                           <div className="flex items-center gap-2 mb-2">
@@ -207,23 +207,24 @@ export function NotificationPanel({
 
                         {/* Status and Actions */}
                         <div className="flex flex-col items-end gap-2">
-                          <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium border ${statusColors[pref.status]}`}>
+                          <div className={`flex items-center gap-1.5 px-1.5 md:px-2 py-1 rounded-lg text-xs font-medium border ${statusColors[pref.status]}`}>
                             {statusIcons[pref.status]}
-                            {statusLabels[pref.status]}
+                            <span className="hidden sm:inline">{statusLabels[pref.status]}</span>
+                            <span className="sm:hidden">{statusLabels[pref.status].charAt(0)}</span>
                           </div>
 
                           {pref.status === 'pending' && (
                             <div className="flex gap-1">
                               <button
                                 onClick={(e) => handleQuickReject(e, pref.id)}
-                                className="p-1.5 border-2 border-red-500 dark:border-red-400 text-red-600 dark:text-red-400 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                className="p-1.5 md:p-1.5 border-2 border-red-500 dark:border-red-400 text-red-600 dark:text-red-400 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-150 active:bg-red-100 dark:active:bg-red-900/40 active:scale-95 touch-manipulation min-w-[36px] min-h-[36px] flex items-center justify-center"
                                 title="Отклонить"
                               >
                                 <XCircle className="w-4 h-4" />
                               </button>
                               <button
                                 onClick={(e) => handleQuickApprove(e, pref.id)}
-                                className="p-1.5 bg-green-500 dark:bg-green-600 text-white rounded hover:bg-green-600 dark:hover:bg-green-700 transition-colors"
+                                className="p-1.5 md:p-1.5 bg-green-500 dark:bg-green-600 text-white rounded hover:bg-green-600 dark:hover:bg-green-700 transition-all duration-150 active:bg-green-700 dark:active:bg-green-800 active:scale-95 touch-manipulation min-w-[36px] min-h-[36px] flex items-center justify-center"
                                 title="Одобрить"
                               >
                                 <CheckCircle className="w-4 h-4" />

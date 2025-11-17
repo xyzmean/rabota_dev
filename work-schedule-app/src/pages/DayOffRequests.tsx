@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Home, Settings as SettingsIcon, PlusCircle, Calendar, User, MessageSquare, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Home, Settings as SettingsIcon, PlusCircle, Calendar, User, MessageSquare, CheckCircle, XCircle, Clock, Edit2, Trash2 } from 'lucide-react';
 import { DayOffRequestModal } from '../components/DayOffRequestModal';
 import { DayOffRequestViewer } from '../components/DayOffRequestViewer';
-import { employeeApi, preferenceReasonsApi, preferencesApi } from '../services/api';
+import { employeeApi, preferenceReasonsApi, preferencesApi, validationRulesApi } from '../services/api';
 import { Employee, PreferenceReason, EmployeePreference, EmployeePreferenceInput } from '../types';
 
 export default function DayOffRequests() {
   const [requestModalOpen, setRequestModalOpen] = useState(false);
   const [viewingRequest, setViewingRequest] = useState<EmployeePreference | null>(null);
+  const [editingRequest, setEditingRequest] = useState<EmployeePreference | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [reasons, setReasons] = useState<PreferenceReason[]>([]);
   const [preferences, setPreferences] = useState<EmployeePreference[]>([]);
@@ -45,7 +46,57 @@ export default function DayOffRequests() {
 
   const handleApproveRequest = async (id: number) => {
     try {
+      // Найдем запрос для получения информации
+      const request = preferences.find(p => p.id === id);
+      if (!request) return;
+
+      // Обновим статус запроса
       await preferencesApi.updateStatus(id, 'approved');
+
+      // Создадим правило валидации для подтвержденного выходного
+      const employee = employees.find(e => e.id === request.employeeId);
+      if (employee) {
+        const ruleData = {
+          ruleType: 'required_work_days' as const,
+          enabled: true,
+          config: {
+            employeeId: request.employeeId,
+            specificDate: request.targetDate, // YYYY-MM-DD format
+            action: 'day_off' // Выходной
+          },
+          appliesToEmployees: [request.employeeId],
+          enforcementType: 'error' as const,
+          customMessage: `Выходной для ${employee.name} (${request.targetDate})`,
+          priority: 1, // Высший приоритет
+          description: `Автоматически созданное правило для выходного дня сотрудника ${employee.name}`
+        };
+
+        // Создаем правило с высшим приоритетом
+        const newRule = await validationRulesApi.create(ruleData);
+
+        // Обновим приоритеты всех существующих правил
+        try {
+          const existingRules = await validationRulesApi.getAll();
+          const rulesToUpdate = existingRules
+            .filter(r => r.id !== newRule.id)
+            .sort((a, b) => a.priority - b.priority)
+            .map((rule, index) => ({
+              ...rule,
+              priority: index + 2 // Новые приоритеты: 2, 3, 4, ...
+            }));
+
+          // Обновляем приоритеты
+          for (const rule of rulesToUpdate) {
+            await validationRulesApi.update(rule.id, {
+              ...rule,
+              priority: rule.priority
+            });
+          }
+        } catch (priorityError) {
+          console.warn('Failed to update rule priorities:', priorityError);
+        }
+      }
+
       await loadData();
     } catch (err) {
       console.error('Failed to approve request:', err);
@@ -63,8 +114,43 @@ export default function DayOffRequests() {
     }
   };
 
+  const handleDeleteRequest = async (id: number) => {
+    if (!confirm('Удалить этот запрос?')) return;
+    try {
+      await preferencesApi.delete(id);
+      await loadData();
+    } catch (err) {
+      console.error('Failed to delete request:', err);
+      alert('Ошибка при удалении запроса');
+    }
+  };
+
   const handleViewRequestDetails = (preference: EmployeePreference) => {
     setViewingRequest(preference);
+  };
+
+  const handleEditRequest = (preference: EmployeePreference) => {
+    setEditingRequest(preference);
+    setRequestModalOpen(true);
+  };
+
+  const handleUpdateRequest = async (request: EmployeePreferenceInput) => {
+    try {
+      if (editingRequest) {
+        await preferencesApi.update(editingRequest.id, request);
+        await loadData();
+        alert('Запрос успешно обновлен!');
+      } else {
+        await preferencesApi.create(request);
+        await loadData();
+        alert('Запрос на выходной успешно создан!');
+      }
+      setEditingRequest(null);
+      setRequestModalOpen(false);
+    } catch (err) {
+      console.error('Failed to save request:', err);
+      alert('Ошибка при сохранении запроса');
+    }
   };
 
   const filteredPreferences = preferences.filter(pref => {
@@ -151,7 +237,10 @@ export default function DayOffRequests() {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mb-6">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <button
-              onClick={() => setRequestModalOpen(true)}
+              onClick={() => {
+                setEditingRequest(null);
+                setRequestModalOpen(true);
+              }}
               className="flex items-center gap-2 px-4 py-2 bg-green-500 dark:bg-green-600 text-white rounded-lg hover:bg-green-600 dark:hover:bg-green-700 transition-colors text-sm md:text-base shadow-md hover:shadow-lg"
             >
               <PlusCircle size={20} />
@@ -271,30 +360,79 @@ export default function DayOffRequests() {
                         {getStatusBadge(pref.status)}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        {pref.status === 'pending' && (
-                          <div className="flex gap-2">
+                        <div className="flex gap-1">
+                          {/* Кнопка просмотра деталей */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleViewRequestDetails(pref);
+                            }}
+                            className="p-1.5 rounded bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 transition-colors"
+                            title="Подробнее"
+                          >
+                            <MessageSquare size={16} />
+                          </button>
+
+                          {/* Кнопки редактирования и удаления для ожидающих запросов */}
+                          {pref.status === 'pending' && (
+                            <>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditRequest(pref);
+                                }}
+                                className="p-1.5 rounded bg-yellow-100 dark:bg-yellow-900/30 hover:bg-yellow-200 dark:hover:bg-yellow-900/50 text-yellow-600 dark:text-yellow-400 transition-colors"
+                                title="Редактировать"
+                              >
+                                <Edit2 size={16} />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleApproveRequest(pref.id!);
+                                }}
+                                className="p-1.5 rounded bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50 text-green-600 dark:text-green-400 transition-colors"
+                                title="Одобрить"
+                              >
+                                <CheckCircle size={16} />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRejectRequest(pref.id!);
+                                }}
+                                className="p-1.5 rounded bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 transition-colors"
+                                title="Отклонить"
+                              >
+                                <XCircle size={16} />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteRequest(pref.id!);
+                                }}
+                                className="p-1.5 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-400 transition-colors"
+                                title="Удалить"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </>
+                          )}
+
+                          {/* Кнопка удаления для обработанных запросов */}
+                          {pref.status !== 'pending' && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleApproveRequest(pref.id!);
+                                handleDeleteRequest(pref.id!);
                               }}
-                              className="p-1.5 rounded bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50 text-green-600 dark:text-green-400 transition-colors"
-                              title="Одобрить"
+                              className="p-1.5 rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-400 transition-colors"
+                              title="Удалить"
                             >
-                              <CheckCircle size={16} />
+                              <Trash2 size={16} />
                             </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleRejectRequest(pref.id!);
-                              }}
-                              className="p-1.5 rounded bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 transition-colors"
-                              title="Отклонить"
-                            >
-                              <XCircle size={16} />
-                            </button>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -314,8 +452,12 @@ export default function DayOffRequests() {
         <DayOffRequestModal
           employees={employees}
           reasons={reasons}
-          onSave={handleCreateRequest}
-          onClose={() => setRequestModalOpen(false)}
+          request={editingRequest}
+          onSave={handleUpdateRequest}
+          onClose={() => {
+            setRequestModalOpen(false);
+            setEditingRequest(null);
+          }}
         />
       )}
 

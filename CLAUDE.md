@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+- После выполнения каждой задачи пушь изменения в git
+
 ## Project Overview
 
 **RaboTA** - Внутренний сайт для управления рабочими процессами и инструментов для личной продуктивности.

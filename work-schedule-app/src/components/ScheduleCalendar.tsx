@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, X, AlertCircle, AlertTriangle, Info } from 'lucide-react';
 import { Employee, Shift, ScheduleEntry, ValidationViolation, ScheduleValidationResult, EmployeePreference, PreferenceReason } from '../types';
-import { scheduleApi, preferencesApi } from '../services/api';
+import { scheduleApi, preferencesApi, validationRulesApi } from '../services/api';
 import { DayOffRequestViewer } from './DayOffRequestViewer';
 
 interface ScheduleCalendarProps {
@@ -90,7 +90,7 @@ export function ScheduleCalendar({
     }
   };
 
-  // Get pending day-off requests for a specific date
+  // Get day-off requests for a specific date
   const getPendingRequests = (employeeId: string, day: number): EmployeePreference | undefined => {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     return preferences.find(p => {
@@ -107,16 +107,95 @@ export function ScheduleCalendar({
     });
   };
 
+  // Get approved day-off requests for a specific date
+  const getApprovedRequests = (employeeId: string, day: number): EmployeePreference | undefined => {
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    return preferences.find(p => {
+      if (!p.targetDate) return false;
+      const prefDate = p.targetDate.split('T')[0];
+      return (
+        p.employeeId === employeeId &&
+        prefDate === dateStr &&
+        p.preferenceType === 'day_off' &&
+        p.status === 'approved'
+      );
+    });
+  };
+
   // Handle request approval
   const handleApproveRequest = async (id: number) => {
-    await preferencesApi.updateStatus(id, 'approved');
-    onPreferencesChange(); // Reload preferences from parent
+    try {
+      // Сначала найдем запрос для получения информации
+      const request = preferences.find(p => p.id === id);
+      if (!request) return;
+
+      // Обновим статус запроса
+      await preferencesApi.updateStatus(id, 'approved');
+
+      // Создадим правило валидации для подтвержденного выходного
+      const targetDate = new Date(request.targetDate!);
+      const employee = employees.find(e => e.id === request.employeeId);
+
+      if (employee) {
+        const ruleData = {
+          ruleType: 'required_work_days' as const,
+          enabled: true,
+          config: {
+            employeeId: request.employeeId,
+            dayOfWeek: targetDate.getDay(), // 0 = Sunday, 1 = Monday, etc.
+            specificDate: request.targetDate, // YYYY-MM-DD format
+            action: 'day_off' // Выходной
+          },
+          appliesToEmployees: [request.employeeId],
+          enforcementType: 'error' as const,
+          customMessage: `Выходной для ${employee.name} (${request.targetDate})`,
+          priority: 1, // Высший приоритет
+          description: `Автоматически созданное правило для выходного дня сотрудника ${employee.name}`
+        };
+
+        // Создаем правило с высшим приоритетом
+        const newRule = await validationRulesApi.create(ruleData);
+
+        // Обновим приоритеты всех существующих правил, чтобы новое правило было первым
+        try {
+          const existingRules = await validationRulesApi.getAll();
+          const rulesToUpdate = existingRules
+            .filter(r => r.id !== newRule.id)
+            .sort((a, b) => a.priority - b.priority)
+            .map((rule, index) => ({
+              ...rule,
+              priority: index + 2 // Новые приоритеты: 2, 3, 4, ...
+            }));
+
+          // Обновляем приоритеты для каждого правила
+          for (const rule of rulesToUpdate) {
+            await validationRulesApi.update(rule.id, {
+              ...rule,
+              priority: rule.priority
+            });
+          }
+        } catch (priorityError) {
+          console.warn('Failed to update rule priorities:', priorityError);
+          // Правило создано, но приоритеты не обновлены - не критично
+        }
+      }
+
+      onPreferencesChange(); // Reload preferences from parent
+    } catch (error) {
+      console.error('Failed to approve request:', error);
+      throw error;
+    }
   };
 
   // Handle request rejection
   const handleRejectRequest = async (id: number) => {
-    await preferencesApi.updateStatus(id, 'rejected');
-    onPreferencesChange(); // Reload preferences from parent
+    try {
+      await preferencesApi.updateStatus(id, 'rejected');
+      onPreferencesChange(); // Reload preferences from parent
+    } catch (error) {
+      console.error('Failed to reject request:', error);
+      throw error;
+    }
   };
 
   const monthNames = [
@@ -190,8 +269,9 @@ export function ScheduleCalendar({
   const getPopupStyle = (): React.CSSProperties => {
     if (!activeCell?.rect) return {};
 
-    const popupWidth = 200;
-    const popupHeight = 300;
+    const isMobile = window.innerWidth < 768;
+    const popupWidth = isMobile ? Math.min(window.innerWidth - 20, 280) : 200;
+    const popupHeight = isMobile ? Math.min(window.innerHeight - 100, 400) : 300;
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
 
@@ -209,10 +289,17 @@ export function ScheduleCalendar({
       top = activeCell.rect.top - popupHeight - 8;
     }
 
+    // Ensure popup doesn't go above screen
+    if (top < 10) {
+      top = 10;
+    }
+
     return {
       position: 'fixed',
       left: `${left}px`,
       top: `${top}px`,
+      width: `${popupWidth}px`,
+      maxHeight: `${popupHeight}px`,
       zIndex: 50
     };
   };
@@ -367,9 +454,12 @@ export function ScheduleCalendar({
           )}
 
           {/* Schedule Table */}
-          <div className="overflow-x-auto relative -mx-4 md:mx-0">
+          <div className="overflow-x-auto relative -mx-4 md:mx-0 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-gray-800">
+            {/* Mobile scroll indicator */}
+            <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-gray-100 dark:from-gray-800 to-transparent z-30 pointer-events-none md:hidden"></div>
+            <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-gray-100 dark:from-gray-800 to-transparent z-30 pointer-events-none md:hidden"></div>
             <div className="inline-block min-w-full align-middle">
-              <table className="w-full border-collapse text-xs md:text-sm">
+              <table className="w-full border-collapse text-xs md:text-sm select-none">
                 <thead>
                   <tr>
                     <th className="border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 p-1 md:p-2 text-left font-semibold sticky left-0 z-20 min-w-[80px] md:min-w-[120px] text-gray-800 dark:text-gray-100">
@@ -416,14 +506,15 @@ export function ScheduleCalendar({
                           const isTodayDate = isToday(day);
                           const violations = getCellViolations(employee.id, day);
                           const pendingRequest = getPendingRequests(employee.id, day);
+                          const approvedRequest = getApprovedRequests(employee.id, day);
 
-                          let baseClassName = 'border border-gray-300 dark:border-gray-600 p-0.5 md:p-1 text-center cursor-pointer transition-colors ';
+                          let baseClassName = 'border border-gray-300 dark:border-gray-600 p-0.5 md:p-1 text-center cursor-pointer transition-all duration-150 touch-manipulation ';
                           if (isTodayDate) {
-                            baseClassName += 'bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50 ring-1 ring-inset ring-green-500 dark:ring-green-400';
+                            baseClassName += 'bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50 active:bg-green-300 dark:active:bg-green-800/70 ring-1 ring-inset ring-green-500 dark:ring-green-400 active:scale-95 md:hover:scale-100';
                           } else if (isWeekend) {
-                            baseClassName += 'bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40';
+                            baseClassName += 'bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 active:bg-red-200 dark:active:bg-red-900/60 active:scale-95 md:hover:scale-100';
                           } else {
-                            baseClassName += 'bg-white dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-blue-900/20';
+                            baseClassName += 'bg-white dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 active:bg-blue-100 dark:active:bg-blue-900/40 active:scale-95 md:hover:scale-100';
                           }
 
                           const cellClassName = getCellClassName(employee.id, day, baseClassName);
@@ -462,7 +553,19 @@ export function ScheduleCalendar({
                                       e.stopPropagation();
                                       setViewingRequest(pendingRequest);
                                     }}
-                                    title="Запрос на выходной"
+                                    title="Ожидающий запрос на выходной"
+                                    style={{ left: '2px' }}
+                                  />
+                                )}
+                                {approvedRequest && (
+                                  <div
+                                    className="absolute bottom-0 left-0 w-2 h-2 rounded-full bg-green-600 dark:bg-green-500 cursor-pointer hover:scale-125 transition-transform"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setViewingRequest(approvedRequest);
+                                    }}
+                                    title="Подтвержденный выходной"
+                                    style={{ left: pendingRequest ? '6px' : '2px' }}
                                   />
                                 )}
                               </div>
@@ -483,7 +586,7 @@ export function ScheduleCalendar({
               <div
                 ref={popupRef}
                 style={getPopupStyle()}
-                className="bg-white dark:bg-gray-800 border-2 border-blue-500 dark:border-blue-400 rounded-lg shadow-2xl p-3 min-w-[200px] max-w-[250px]"
+                className="bg-white dark:bg-gray-800 border-2 border-blue-500 dark:border-blue-400 rounded-lg shadow-2xl p-3 md:p-3 overflow-y-auto"
               >
                 <div className="flex items-center justify-between mb-2 pb-2 border-b border-gray-200 dark:border-gray-700">
                   <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">Выбрать смену</span>
@@ -505,7 +608,7 @@ export function ScheduleCalendar({
                         e.stopPropagation();
                         handleShiftSelect(s.id);
                       }}
-                      className="w-full flex items-center gap-2 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      className="w-full flex items-center gap-2 md:gap-2 p-3 md:p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 active:bg-gray-200 dark:active:bg-gray-600 transition-all duration-150 touch-manipulation active:scale-95 min-h-[44px]"
                     >
                       <div
                         className="w-8 h-8 rounded flex items-center justify-center text-white font-bold text-xs flex-shrink-0"
@@ -546,6 +649,8 @@ export function ScheduleCalendar({
               <li>• <span className="font-semibold text-green-700 dark:text-green-400">Зеленым</span> выделена текущая дата</li>
               <li>• <span className="font-semibold text-red-700 dark:text-red-400">Красным</span> выделены выходные дни (суббота и воскресенье)</li>
               <li>• <span className="inline-block w-2 h-2 rounded-full bg-red-600 dark:bg-red-500"></span> Красная точка - ожидающий запрос на выходной (кликните для просмотра)</li>
+              <li>• <span className="inline-block w-2 h-2 rounded-full bg-green-600 dark:bg-green-500"></span> Зеленая точка - подтвержденный выходной (кликните для просмотра)</li>
+              <li>• При подтверждении запроса автоматически создается правило с высшим приоритетом</li>
               <li>• Статистика часов отображается вверху таблицы</li>
             </ul>
           </div>

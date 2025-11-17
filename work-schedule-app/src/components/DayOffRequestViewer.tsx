@@ -65,28 +65,28 @@ export function DayOffRequestViewer({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-lg w-full">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 md:p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto m-4">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-3">
-            <Calendar className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+        <div className="flex items-center justify-between p-4 md:p-6 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800">
+          <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
+            <Calendar className="w-5 h-5 md:w-6 md:h-6 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+            <h2 className="text-lg md:text-2xl font-bold text-gray-900 dark:text-gray-100 truncate">
               Запрос выходного
             </h2>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all duration-150 active:bg-gray-200 dark:active:bg-gray-600 active:scale-95 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
           >
             <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-4">
+        <div className="p-4 md:p-6 space-y-3 md:space-y-4">
           {/* Employee */}
-          <div className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+          <div className="flex items-center gap-3 p-3 md:p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
             <User className="w-5 h-5 text-gray-600 dark:text-gray-400" />
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Сотрудник</p>
@@ -97,11 +97,11 @@ export function DayOffRequestViewer({
           </div>
 
           {/* Date */}
-          <div className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-            <Calendar className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-            <div>
+          <div className="flex items-center gap-3 p-3 md:p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+            <Calendar className="w-5 h-5 text-gray-600 dark:text-gray-400 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
               <p className="text-sm text-gray-600 dark:text-gray-400">Дата</p>
-              <p className="font-semibold text-gray-900 dark:text-gray-100">
+              <p className="font-semibold text-gray-900 dark:text-gray-100 truncate">
                 {request.targetDate ? formatDate(request.targetDate) : 'Не указана'}
               </p>
             </div>
@@ -109,7 +109,7 @@ export function DayOffRequestViewer({
 
           {/* Reason */}
           {reason && (
-            <div className="flex items-start gap-3 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+            <div className="flex items-start gap-3 p-3 md:p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
               {reason.color && (
                 <div
                   className="w-5 h-5 rounded-full flex-shrink-0 mt-0.5"
@@ -151,20 +151,20 @@ export function DayOffRequestViewer({
 
           {/* Actions */}
           {canApprove && request.status === 'pending' && (
-            <div className="flex gap-3 pt-4">
+            <div className="flex gap-2 md:gap-3 pt-3 md:pt-4">
               <button
                 onClick={handleReject}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 border-2 border-red-500 dark:border-red-400 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors font-semibold"
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-3 md:px-4 md:py-3 border-2 border-red-500 dark:border-red-400 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-150 font-semibold active:bg-red-100 dark:active:bg-red-900/40 active:scale-95 touch-manipulation min-h-[48px]"
               >
-                <XCircle className="w-5 h-5" />
-                Отклонить
+                <XCircle className="w-4 h-4 md:w-5 md:h-5" />
+                <span className="text-sm md:text-base">Отклонить</span>
               </button>
               <button
                 onClick={handleApprove}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-500 dark:bg-green-600 text-white rounded-lg hover:bg-green-600 dark:hover:bg-green-700 transition-colors font-semibold"
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-3 md:px-4 md:py-3 bg-green-500 dark:bg-green-600 text-white rounded-lg hover:bg-green-600 dark:hover:bg-green-700 transition-all duration-150 font-semibold active:bg-green-700 dark:active:bg-green-800 active:scale-95 touch-manipulation min-h-[48px]"
               >
-                <CheckCircle className="w-5 h-5" />
-                Одобрить
+                <CheckCircle className="w-4 h-4 md:w-5 md:h-5" />
+                <span className="text-sm md:text-base">Одобрить</span>
               </button>
             </div>
           )}
@@ -180,7 +180,7 @@ export function DayOffRequestViewer({
           {request.status !== 'pending' && (
             <button
               onClick={onClose}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-150 active:bg-gray-100 dark:active:bg-gray-600 active:scale-95 touch-manipulation min-h-[48px]"
             >
               Закрыть
             </button>

@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { X, Calendar, User } from 'lucide-react';
-import { Employee, PreferenceReason, EmployeePreferenceInput } from '../types';
+import { X, Calendar, User, Edit2 } from 'lucide-react';
+import { Employee, PreferenceReason, EmployeePreferenceInput, EmployeePreference } from '../types';
 
 interface DayOffRequestModalProps {
   employees: Employee[];
   reasons: PreferenceReason[];
+  request?: EmployeePreference | null; // Для редактирования
   onSave: (request: EmployeePreferenceInput) => Promise<void>;
   onClose: () => void;
   initialDate?: string; // YYYY-MM-DD
@@ -14,16 +15,19 @@ interface DayOffRequestModalProps {
 export function DayOffRequestModal({
   employees,
   reasons,
+  request,
   onSave,
   onClose,
   initialDate,
   initialEmployeeId,
 }: DayOffRequestModalProps) {
-  const [employeeId, setEmployeeId] = useState(initialEmployeeId || '');
-  const [targetDate, setTargetDate] = useState(initialDate || '');
-  const [reasonId, setReasonId] = useState<number | undefined>(undefined);
-  const [notes, setNotes] = useState('');
+  const [employeeId, setEmployeeId] = useState(request?.employeeId || initialEmployeeId || '');
+  const [targetDate, setTargetDate] = useState(request?.targetDate || initialDate || '');
+  const [reasonId, setReasonId] = useState<number | undefined>(request?.reasonId || undefined);
+  const [notes, setNotes] = useState(request?.notes || '');
   const [saving, setSaving] = useState(false);
+
+  const isEditing = !!request;
 
   useEffect(() => {
     // Set default reason to the highest priority one
@@ -66,9 +70,12 @@ export function DayOffRequestModal({
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            Запрос выходного дня
-          </h2>
+          <div className="flex items-center gap-3">
+            {isEditing && <Edit2 className="w-6 h-6 text-blue-600 dark:text-blue-400" />}
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+              {isEditing ? 'Редактирование запроса' : 'Новый запрос выходного'}
+            </h2>
+          </div>
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
@@ -90,7 +97,7 @@ export function DayOffRequestModal({
               onChange={(e) => setEmployeeId(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               required
-              disabled={!!initialEmployeeId}
+              disabled={!!initialEmployeeId || isEditing}
             >
               <option value="">Выберите сотрудника</option>
               {employees.map((emp) => (
