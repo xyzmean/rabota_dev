@@ -463,6 +463,14 @@ export const autoScheduleApi = {
     });
     return handleResponse<{ success: boolean; message: string; schedule: number }>(response);
   },
+
+  clearDatabase: async (): Promise<{ success: boolean; message: string }> => {
+    const response = await fetch(`${API_URL}/auto-schedule/clear-database`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return handleResponse<{ success: boolean; message: string }>(response);
+  },
 };
 
 // === Database API ===

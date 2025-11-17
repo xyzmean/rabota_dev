@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Users, Home, Settings as SettingsIcon } from 'lucide-react';
+import { Calendar, Users, Home, Settings as SettingsIcon, Trash2, AlertTriangle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import EmployeeManager from '../components/EmployeeManager';
 import { ScheduleCalendar } from '../components/ScheduleCalendar';
@@ -21,6 +21,7 @@ export default function Schedule() {
   const [loading, setLoading] = useState(true);
   const [viewingRequest, setViewingRequest] = useState<EmployeePreference | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
 
   // Load all data from API
   useEffect(() => {
@@ -159,6 +160,48 @@ export default function Schedule() {
     }
   };
 
+  // Full database clear
+  const handleClearDatabase = async () => {
+    // Подтверждение от пользователя
+    const confirmMessage = `⚠️ ВНИМАНИЕ! ⚠️\n\n` +
+      'Вы уверены, что хотите полностью очистить базу данных?\n\n' +
+      'Это действие НЕОБРАТИМО и удалит:\n' +
+      '• Все графики\n' +
+      '• Всех сотрудников\n' +
+      '• Все смены\n' +
+      '• Все настройки\n' +
+      '• Все правила валидации\n' +
+      '• Все запросы сотрудников\n' +
+      '• Все причины запросов\n' +
+      '• Все роли\n\n' +
+      'После очистки потребуется начальная настройка системы.\n\n' +
+      'Для подтверждения введите: УДАЛИТЬ_ВСЕ';
+
+    const confirmation = prompt(confirmMessage);
+    if (confirmation !== 'УДАЛИТЬ_ВСЕ') {
+      alert('Очистка базы данных отменена.');
+      return;
+    }
+
+    setIsClearing(true);
+    try {
+      const result = await autoScheduleApi.clearDatabase();
+
+      if (result.success) {
+        alert('База данных полностью очищена! Страница будет перезагружена.');
+        // Перезагружаем страницу для очистки состояния
+        window.location.reload();
+      } else {
+        alert('Ошибка при очистке базы данных. Пожалуйста, попробуйте еще раз.');
+      }
+    } catch (error) {
+      console.error('Failed to clear database:', error);
+      alert('Произошла ошибка при очистке базы данных. Пожалуйста, проверьте консоль для деталей.');
+    } finally {
+      setIsClearing(false);
+    }
+  };
+
   const tabs: { id: Tab; label: string; icon: React.ReactElement }[] = [
     { id: 'schedule', label: 'График работы', icon: <Calendar size={20} /> },
     { id: 'employees', label: 'Сотрудники', icon: <Users size={20} /> },
@@ -207,14 +250,25 @@ export default function Schedule() {
                   Создайте график автоматически на основе правил валидации. Выходные дни заполняются автоматически.
                 </p>
               </div>
-              <button
-                onClick={handleGenerateSchedule}
-                disabled={isGenerating}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors shadow-md hover:shadow-lg disabled:cursor-not-allowed"
-              >
-                <Wand2 size={18} className={isGenerating ? 'animate-spin' : ''} />
-                {isGenerating ? 'Генерация...' : 'Автографик'}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleGenerateSchedule}
+                  disabled={isGenerating}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors shadow-md hover:shadow-lg disabled:cursor-not-allowed"
+                >
+                  <Wand2 size={18} className={isGenerating ? 'animate-spin' : ''} />
+                  {isGenerating ? 'Генерация...' : 'Автографик'}
+                </button>
+                <button
+                  onClick={handleClearDatabase}
+                  disabled={isClearing}
+                  className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white rounded-lg transition-colors shadow-md hover:shadow-lg disabled:cursor-not-allowed"
+                  title="Полная очистка базы данных (необратимо)"
+                >
+                  <Trash2 size={18} className={isClearing ? 'animate-pulse' : ''} />
+                  {isClearing ? 'Очистка...' : 'Очистить БД'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

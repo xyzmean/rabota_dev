@@ -229,11 +229,28 @@ async function generateOptimalSchedule(
 
     if (availableEmployees.length === 0) continue; // Все сотрудники имеют выходной
 
+    // Проверяем, не работает ли сотрудник уже много дней подряд
+    const filteredEmployees = availableEmployees.filter(emp => {
+      const consecutiveWorkDays = getConsecutiveWorkDays(emp.id, day, schedule);
+      // Ищем правило максимальных рабочих дней подряд
+      const maxConsecutiveRule = validationRules.find(r =>
+        r.rule_type === 'max_consecutive_work_days' || r.rule_type === 'max_consecutive_shifts'
+      );
+      if (maxConsecutiveRule) {
+        const maxDays = maxConsecutiveRule.config.max_days || 5;
+        return consecutiveWorkDays < maxDays;
+      }
+      return true;
+    });
+
+    // Если после фильтрации никого не осталось, берем всех доступных
+    const finalEmployees = filteredEmployees.length > 0 ? filteredEmployees : availableEmployees;
+
     const daySchedule = generateDaySchedule(
       day,
       month,
       year,
-      availableEmployees,
+      finalEmployees,
       workingShifts,
       validationRules,
       schedule
@@ -243,6 +260,32 @@ async function generateOptimalSchedule(
   }
 
   return schedule;
+}
+
+// Получаем количество рабочих дней подряд для сотрудника до указанной даты
+function getConsecutiveWorkDays(
+  employeeId: string,
+  currentDay: number,
+  schedule: ScheduleEntry[]
+): number {
+  const employeeEntries = schedule
+    .filter(s => s.employee_id === employeeId && s.shift_id !== 'day-off')
+    .filter(s => s.day < currentDay)
+    .sort((a, b) => b.day - a.day); // Сортируем в обратном порядке
+
+  let consecutiveDays = 0;
+  let expectedDay = currentDay - 1;
+
+  for (const entry of employeeEntries) {
+    if (entry.day === expectedDay) {
+      consecutiveDays++;
+      expectedDay--;
+    } else {
+      break; // Прерывание последовательности
+    }
+  }
+
+  return consecutiveDays;
 }
 
 // Генерируем расписание для одного дня
@@ -277,12 +320,16 @@ function generateDaySchedule(
   }
 
   // Оцениваем каждый вариант по правилам валидации
-  const scoredVariants = variants.map(variant => ({
-    variant,
-    score: calculateVariantScore(variant, validationRules, existingSchedule)
-  }));
+  const scoredVariants = variants.map(variant => {
+    const scoreResult = calculateVariantScore(variant, validationRules, existingSchedule);
+    return {
+      variant,
+      score: scoreResult.score,
+      ruleResults: scoreResult.ruleResults
+    };
+  });
 
-  // Сортируем по убыванию оценки (самый высокий приоритет правил)
+  // Сортируем по количеству подряд выполненных правил (больше = лучше)
   scoredVariants.sort((a, b) => b.score - a.score);
 
   // Выбираем лучший вариант
@@ -301,26 +348,103 @@ function generateScheduleVariants(
 ): ScheduleEntry[][] {
   const variants: ScheduleEntry[][] = [];
 
-  // Простой алгоритм: каждому сотруднику по одной смене
-  if (employees.length > 0 && shifts.length > 0) {
-    const variant: ScheduleEntry[] = [];
+  if (employees.length === 0 || shifts.length === 0) {
+    return variants;
+  }
 
-    // Распределяем смены по сотрудникам циклически
+  // Вариант 1: всем по одной смене, равномерное распределение
+  const equalVariant: ScheduleEntry[] = [];
+  for (let i = 0; i < employees.length; i++) {
+    const shiftIndex = i % shifts.length;
+    equalVariant.push({
+      employee_id: employees[i].id,
+      day,
+      month,
+      year,
+      shift_id: shifts[shiftIndex].id
+    });
+  }
+  variants.push(equalVariant);
+
+  // Вариант 2: первые сотрудники в первую смену, остальные во вторую
+  if (shifts.length >= 2 && employees.length >= 2) {
+    const firstShiftVariant: ScheduleEntry[] = [];
+    const half = Math.ceil(employees.length / 2);
+
     for (let i = 0; i < employees.length; i++) {
-      const shiftIndex = i % shifts.length;
-      variant.push({
+      const shiftId = i < half ? shifts[0].id : shifts[1].id;
+      firstShiftVariant.push({
         employee_id: employees[i].id,
         day,
         month,
         year,
-        shift_id: shifts[shiftIndex].id
+        shift_id: shiftId
       });
     }
-
-    variants.push(variant);
+    variants.push(firstShiftVariant);
   }
 
-  return variants;
+  // Вариант 3: только одна смена для всех
+  if (employees.length <= 4) {
+    for (const shift of shifts) {
+      const singleShiftVariant: ScheduleEntry[] = [];
+      for (const employee of employees) {
+        singleShiftVariant.push({
+          employee_id: employee.id,
+          day,
+          month,
+          year,
+          shift_id: shift.id
+        });
+      }
+      variants.push(singleShiftVariant);
+    }
+  }
+
+  // Вариант 4: минимум сотрудников (по 1-2 на смену)
+  if (employees.length >= shifts.length) {
+    const minimalVariant: ScheduleEntry[] = [];
+    for (let i = 0; i < shifts.length && i < employees.length; i++) {
+      minimalVariant.push({
+        employee_id: employees[i].id,
+        day,
+        month,
+        year,
+        shift_id: shifts[i].id
+      });
+    }
+    variants.push(minimalVariant);
+  }
+
+  // Вариант 5: чередование через одного
+  if (shifts.length >= 2 && employees.length >= 3) {
+    const alternatingVariant: ScheduleEntry[] = [];
+    for (let i = 0; i < employees.length; i++) {
+      const shiftIndex = i % 2 === 0 ? 0 : 1;
+      if (shiftIndex < shifts.length) {
+        alternatingVariant.push({
+          employee_id: employees[i].id,
+          day,
+          month,
+          year,
+          shift_id: shifts[shiftIndex].id
+        });
+      }
+    }
+    variants.push(alternatingVariant);
+  }
+
+  // Удаляем дубликаты
+  const uniqueVariants = variants.filter((variant, index, self) => {
+    const key = variant.map(entry => `${entry.employee_id}-${entry.shift_id}`).sort().join(',');
+    return !self.some((otherVariant, otherIndex) =>
+      otherIndex < index &&
+      otherVariant.length === variant.length &&
+      otherVariant.map(entry => `${entry.employee_id}-${entry.shift_id}`).sort().join(',') === key
+    );
+  });
+
+  return uniqueVariants;
 }
 
 // Рассчитываем оценку варианта по правилам валидации
@@ -328,46 +452,85 @@ function calculateVariantScore(
   variant: ScheduleEntry[],
   validationRules: ValidationRule[],
   existingSchedule: ScheduleEntry[]
-): number {
-  let score = 0;
-
+): { score: number; ruleResults: boolean[] } {
   // Создаем временный полный график для проверки
   const tempSchedule = [...existingSchedule, ...variant];
 
+  // Оцениваем каждое правило по отдельности
+  const ruleResults: boolean[] = [];
   for (const rule of validationRules) {
-    const ruleScore = evaluateRule(rule, tempSchedule, variant);
-    // Чем выше приоритет правила, тем больше его вклад в общую оценку
-    score += ruleScore * rule.priority;
+    const isPassed = evaluateRulePass(rule, tempSchedule, variant);
+    ruleResults.push(isPassed);
   }
 
-  return score;
+  // Считаем сколько правил подряд выполнено сверху вниз
+  let consecutivePasses = 0;
+  for (let i = 0; i < ruleResults.length; i++) {
+    if (ruleResults[i]) {
+      consecutivePasses++;
+    } else {
+      break;
+    }
+  }
+
+  // Возвращаем количество подряд выполненных правил и детальные результаты
+  return {
+    score: consecutivePasses,
+    ruleResults
+  };
 }
 
-// Оцениваем выполнение одного правила
+// Проверяем выполнение правила (возвращает boolean)
+function evaluateRulePass(
+  rule: ValidationRule,
+  fullSchedule: ScheduleEntry[],
+  currentVariant: ScheduleEntry[]
+): boolean {
+  try {
+    switch (rule.rule_type) {
+      case 'min_employees_per_shift':
+        return evaluateMinEmployeesPerShiftPass(rule, fullSchedule);
+      case 'max_employees_per_shift':
+        return evaluateMaxEmployeesPerShiftPass(rule, fullSchedule);
+      case 'max_consecutive_work_days':
+        return evaluateMaxConsecutiveWorkDaysPass(rule, fullSchedule);
+      case 'max_consecutive_shifts':
+        return evaluateMaxConsecutiveShiftsPass(rule, fullSchedule);
+      case 'required_work_days':
+        return evaluateRequiredWorkDaysPass(rule, currentVariant);
+      default:
+        return true; // Неизвестные правила считаем выполненными
+    }
+  } catch (error) {
+    console.error(`Ошибка при оценке правила ${rule.rule_type}:`, error);
+    return false;
+  }
+}
+
+// Оцениваем выполнение одного правила (для совместимости)
 function evaluateRule(
   rule: ValidationRule,
   fullSchedule: ScheduleEntry[],
   currentVariant: ScheduleEntry[]
 ): number {
-  try {
-    switch (rule.rule_type) {
-      case 'min_employees_per_shift':
-        return evaluateMinEmployeesPerShift(rule, fullSchedule);
-      case 'max_employees_per_shift':
-        return evaluateMaxEmployeesPerShift(rule, fullSchedule);
-      case 'max_consecutive_work_days':
-        return evaluateMaxConsecutiveWorkDays(rule, fullSchedule);
-      case 'max_consecutive_shifts':
-        return evaluateMaxConsecutiveShifts(rule, fullSchedule);
-      case 'required_work_days':
-        return evaluateRequiredWorkDays(rule, currentVariant);
-      default:
-        return 0;
+  return evaluateRulePass(rule, fullSchedule, currentVariant) ? 100 : 0;
+}
+
+// Проверка правила минимального количества сотрудников в смене
+function evaluateMinEmployeesPerShiftPass(
+  rule: ValidationRule,
+  schedule: ScheduleEntry[]
+): boolean {
+  const { min_employees, shift_ids } = rule.config;
+
+  for (const shiftId of shift_ids || []) {
+    const shiftEmployees = schedule.filter(s => s.shift_id === shiftId);
+    if (shiftEmployees.length < min_employees) {
+      return false; // Нарушение правила
     }
-  } catch (error) {
-    console.error(`Ошибка при оценке правила ${rule.rule_type}:`, error);
-    return 0;
   }
+
+  return true; // Все смены удовлетворяют минимуму
 }
 
 // Оценка правила минимального количества сотрудников в смене
@@ -390,6 +553,23 @@ function evaluateMinEmployeesPerShift(
   return totalCount > 0 ? (satisfiedCount / totalCount) * 100 : 0;
 }
 
+// Проверка правила максимального количества сотрудников в смене
+function evaluateMaxEmployeesPerShiftPass(
+  rule: ValidationRule,
+  schedule: ScheduleEntry[]
+): boolean {
+  const { max_employees, shift_ids } = rule.config;
+
+  for (const shiftId of shift_ids || []) {
+    const shiftEmployees = schedule.filter(s => s.shift_id === shiftId);
+    if (shiftEmployees.length > max_employees) {
+      return false; // Нарушение правила
+    }
+  }
+
+  return true; // Все смены удовлетворяют максимуму
+}
+
 // Оценка правила максимального количества сотрудников в смене
 function evaluateMaxEmployeesPerShift(
   rule: ValidationRule,
@@ -408,6 +588,49 @@ function evaluateMaxEmployeesPerShift(
   }
 
   return totalCount > 0 ? (satisfiedCount / totalCount) * 100 : 0;
+}
+
+// Проверка правила максимального количества рабочих дней подряд
+function evaluateMaxConsecutiveWorkDaysPass(
+  rule: ValidationRule,
+  schedule: ScheduleEntry[]
+): boolean {
+  const { max_days } = rule.config;
+  const employeeWorkDays = new Map<string, number[]>();
+
+  // Группируем рабочие дни по сотрудникам
+  for (const entry of schedule) {
+    if (entry.shift_id !== 'day-off') {
+      if (!employeeWorkDays.has(entry.employee_id)) {
+        employeeWorkDays.set(entry.employee_id, []);
+      }
+      employeeWorkDays.get(entry.employee_id)!.push(entry.day);
+    }
+  }
+
+  for (const [employeeId, days] of employeeWorkDays) {
+    days.sort((a, b) => a - b);
+
+    let maxConsecutive = 0;
+    let currentConsecutive = 0;
+    let lastDay = 0;
+
+    for (const day of days) {
+      if (day === lastDay + 1) {
+        currentConsecutive++;
+      } else {
+        currentConsecutive = 1;
+      }
+      maxConsecutive = Math.max(maxConsecutive, currentConsecutive);
+      lastDay = day;
+    }
+
+    if (maxConsecutive > max_days) {
+      return false; // Нарушение правила
+    }
+  }
+
+  return true; // Все сотрудники удовлетворяют ограничению
 }
 
 // Оценка правила максимального количества рабочих дней подряд
@@ -457,6 +680,15 @@ function evaluateMaxConsecutiveWorkDays(
   return totalCount > 0 ? (satisfiedCount / totalCount) * 100 : 0;
 }
 
+// Проверка правила максимального количества смен подряд
+function evaluateMaxConsecutiveShiftsPass(
+  rule: ValidationRule,
+  schedule: ScheduleEntry[]
+): boolean {
+  // По сути то же самое, что и рабочие дни подряд
+  return evaluateMaxConsecutiveWorkDaysPass(rule, schedule);
+}
+
 // Оценка правила максимального количества смен подряд
 function evaluateMaxConsecutiveShifts(
   rule: ValidationRule,
@@ -464,6 +696,25 @@ function evaluateMaxConsecutiveShifts(
 ): number {
   // По сути то же самое, что и рабочие дни подряд
   return evaluateMaxConsecutiveWorkDays(rule, schedule);
+}
+
+// Проверка обязательных рабочих дней
+function evaluateRequiredWorkDaysPass(
+  rule: ValidationRule,
+  variant: ScheduleEntry[]
+): boolean {
+  const { required_days } = rule.config; // дни недели: 0-вс, 1-пн, ..., 6-сб
+
+  for (const entry of variant) {
+    const date = new Date(entry.year, entry.month, entry.day);
+    const dayOfWeek = date.getDay();
+
+    if (required_days.includes(dayOfWeek) && entry.shift_id === 'day-off') {
+      return false; // Нарушение правила
+    }
+  }
+
+  return true; // Правило выполнено
 }
 
 // Оценка обязательных рабочих дней
@@ -483,6 +734,40 @@ function evaluateRequiredWorkDays(
   }
 
   return 100; // Правило выполнено
+}
+
+// Полная очистка базы данных
+export async function clearAllDatabase() {
+  try {
+    await pool.query('BEGIN');
+
+    // Очищаем все таблицы в правильном порядке
+    await pool.query('DELETE FROM schedule');
+    await pool.query('DELETE FROM employee_preferences');
+    await pool.query('DELETE FROM preference_reasons');
+    await pool.query('DELETE FROM validation_rules');
+    await pool.query('DELETE FROM employees');
+    await pool.query('DELETE FROM shifts');
+    await pool.query('DELETE FROM roles');
+    await pool.query('DELETE FROM app_settings');
+
+    // Сбрасываем счетчики
+    await pool.query('ALTER SEQUENCE employees_id_seq RESTART WITH 1');
+    await pool.query('ALTER SEQUENCE shifts_id_seq RESTART WITH 1');
+    await pool.query('ALTER SEQUENCE roles_id_seq RESTART WITH 1');
+    await pool.query('ALTER SEQUENCE schedule_id_seq RESTART WITH 1');
+    await pool.query('ALTER SEQUENCE employee_preferences_id_seq RESTART WITH 1');
+    await pool.query('ALTER SEQUENCE preference_reasons_id_seq RESTART WITH 1');
+    await pool.query('ALTER SEQUENCE validation_rules_id_seq RESTART WITH 1');
+    await pool.query('ALTER SEQUENCE app_settings_id_seq RESTART WITH 1');
+
+    await pool.query('COMMIT');
+    return true;
+  } catch (error) {
+    await pool.query('ROLLBACK');
+    console.error('Ошибка при очистке базы данных:', error);
+    throw error;
+  }
 }
 
 // Сохраняем график в базу данных
