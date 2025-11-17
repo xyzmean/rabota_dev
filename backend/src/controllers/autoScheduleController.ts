@@ -49,10 +49,11 @@ export const generateSchedule = async (req: Request, res: Response) => {
     }
 
     // Получаем данные
-    const [employees, shifts, validationRules] = await Promise.all([
+    const [employees, shifts, validationRules, approvedDayOffs] = await Promise.all([
       getEmployees(),
       getShifts(),
-      getValidationRules()
+      getValidationRules(),
+      getApprovedDayOffs(month, year)
     ]);
 
     // Проверяем наличие выходной смены
@@ -74,7 +75,8 @@ export const generateSchedule = async (req: Request, res: Response) => {
       validationRules,
       month,
       year,
-      daysInMonth
+      daysInMonth,
+      approvedDayOffs
     );
 
     // Сохраняем в базу данных
@@ -117,6 +119,20 @@ async function getValidationRules(): Promise<ValidationRule[]> {
   return result.rows;
 }
 
+// Получаем одобренные запросы выходных дней
+async function getApprovedDayOffs(month: number, year: number): Promise<Array<{employeeId: string, date: string}>> {
+  const query = `
+    SELECT employee_id as "employeeId", target_date as "date"
+    FROM employee_preferences
+    WHERE preference_type = 'day_off'
+      AND status = 'approved'
+      AND EXTRACT(MONTH FROM target_date) = $1
+      AND EXTRACT(YEAR FROM target_date) = $2
+  `;
+  const result = await pool.query(query, [month + 1, year]); // SQL месяцы 1-12, JavaScript 0-11
+  return result.rows;
+}
+
 // Очищаем существующий график
 async function clearExistingSchedule(month: number, year: number) {
   const query = 'DELETE FROM schedule WHERE month = $1 AND year = $2';
@@ -130,7 +146,8 @@ async function generateOptimalSchedule(
   validationRules: ValidationRule[],
   month: number,
   year: number,
-  daysInMonth: number
+  daysInMonth: number,
+  approvedDayOffs: Array<{employeeId: string, date: string}> = []
 ): Promise<ScheduleEntry[]> {
   const schedule: ScheduleEntry[] = [];
   const workingShifts = shifts.filter(s => s.id !== 'day-off');
@@ -145,7 +162,16 @@ async function generateOptimalSchedule(
     }
   }
 
-  // Сначала заполняем выходные дни
+  // Создаем множества для быстрой проверки одобренных выходных
+  const approvedDayOffsSet = new Map<string, Set<string>>();
+  for (const dayOff of approvedDayOffs) {
+    if (!approvedDayOffsSet.has(dayOff.employeeId)) {
+      approvedDayOffsSet.set(dayOff.employeeId, new Set());
+    }
+    approvedDayOffsSet.get(dayOff.employeeId)!.add(dayOff.date);
+  }
+
+  // Сначала заполняем выходные дни и одобренные выходные
   for (const employee of employees) {
     for (const day of weekendDays) {
       schedule.push({
@@ -156,17 +182,47 @@ async function generateOptimalSchedule(
         shift_id: 'day-off'
       });
     }
+
+    // Добавляем одобренные выходные дни
+    for (const dayOff of approvedDayOffs) {
+      if (dayOff.employeeId === employee.id) {
+        const [offYear, offMonth, offDay] = dayOff.date.split('-').map(Number);
+        if (offYear === year && offMonth === month + 1) { // +1 т.к. SQL месяцы 1-12
+          schedule.push({
+            employee_id: employee.id,
+            day: offDay,
+            month,
+            year,
+            shift_id: 'day-off'
+          });
+        }
+      }
+    }
   }
 
   // Для каждого дня месяца генерируем оптимальное распределение
   for (let day = 1; day <= daysInMonth; day++) {
     if (weekendDays.includes(day)) continue; // Пропускаем выходные
 
+    // Проверяем, есть ли одобренные выходные на этот день
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const employeesWithDayOff = new Set<string>();
+    for (const dayOff of approvedDayOffs) {
+      if (dayOff.date === dateStr) {
+        employeesWithDayOff.add(dayOff.employeeId);
+      }
+    }
+
+    // Фильтруем сотрудников, которые не имеют выходного в этот день
+    const availableEmployees = employees.filter(emp => !employeesWithDayOff.has(emp.id));
+
+    if (availableEmployees.length === 0) continue; // Все сотрудники имеют выходной
+
     const daySchedule = generateDaySchedule(
       day,
       month,
       year,
-      employees,
+      availableEmployees,
       workingShifts,
       validationRules,
       schedule

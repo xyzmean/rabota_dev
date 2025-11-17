@@ -34,6 +34,10 @@ interface ValidationContext {
   shifts: Shift[];
   month: number;
   year: number;
+  approvedDayOffs?: Array<{
+    employeeId: string;
+    date: string; // YYYY-MM-DD
+  }>;
 }
 
 /**
@@ -103,6 +107,8 @@ async function validateRule(
       return validateMaxConsecutiveDaysOff(rule, context);
     case 'employee_day_off':
       return validateEmployeeDayOff(rule, context);
+    case 'approved_day_off_requests':
+      return validateApprovedDayOffRequests(rule, context);
     default:
       return [];
   }
@@ -1076,6 +1082,54 @@ function isWeekend(year: number, month: number, day: number): boolean {
 function isManager(employee: Employee): boolean {
   if (!employee.role || !employee.role.permissions) return false;
   return !!(employee.role.permissions.manage_schedule || employee.role.permissions.approve_preferences);
+}
+
+/**
+ * Проверка одобренных запросов выходных дней
+ */
+function validateApprovedDayOffRequests(
+  rule: ValidationRule,
+  context: ValidationContext
+): ValidationViolation[] {
+  const violations: ValidationViolation[] = [];
+  const { schedule, employees, shifts, approvedDayOffs } = context;
+
+  if (!approvedDayOffs || approvedDayOffs.length === 0) {
+    return violations;
+  }
+
+  for (const dayOff of approvedDayOffs) {
+    // Ищем запись в расписании для этого сотрудника на эту дату
+    const scheduleEntry = schedule.find(entry => {
+      const entryDate = formatDate(entry.year, entry.month, entry.day);
+      return entry.employeeId === dayOff.employeeId && entryDate === dayOff.date;
+    });
+
+    if (scheduleEntry) {
+      const employee = employees.find(e => e.id === dayOff.employeeId);
+      const shift = shifts.find(s => s.id === scheduleEntry.shiftId);
+
+      // Проверяем, что это не выходная смена
+      if (shift && shift.hours > 0) {
+        violations.push({
+          type: rule.ruleType,
+          severity: rule.enforcementType || 'error',
+          message: rule.customMessage ||
+            `${dayOff.date}: У сотрудника ${employee?.name || 'Unknown'} назначена рабочая смена "${shift?.name || 'Unknown'}" в одобренный выходной день`,
+          date: dayOff.date,
+          employeeId: dayOff.employeeId,
+          metadata: {
+            employeeName: employee?.name,
+            shiftName: shift?.name,
+            shiftId: scheduleEntry.shiftId,
+            dayOffRequest: true
+          },
+        });
+      }
+    }
+  }
+
+  return violations;
 }
 
 /**

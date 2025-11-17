@@ -326,6 +326,19 @@ export const validateScheduleController = async (req: Request, res: Response): P
 
     const rules: ValidationRule[] = rulesResult.rows;
 
+    // Получаем одобренные запросы выходных дней за указанный месяц
+    const approvedDayOffsResult = await pool.query(
+      `SELECT
+         employee_id as "employeeId",
+         target_date as "date"
+       FROM employee_preferences
+       WHERE preference_type = 'day_off'
+         AND status = 'approved'
+         AND EXTRACT(MONTH FROM target_date) = $1
+         AND EXTRACT(YEAR FROM target_date) = $2`,
+      [monthNum + 1, yearNum] // SQL месяцы 1-12, JavaScript 0-11
+    );
+
     // Выполняем валидацию
     const validationResult = await validateSchedule(
       {
@@ -334,6 +347,7 @@ export const validateScheduleController = async (req: Request, res: Response): P
         shifts: shiftsResult.rows,
         month: monthNum,
         year: yearNum,
+        approvedDayOffs: approvedDayOffsResult.rows,
       },
       rules
     );
