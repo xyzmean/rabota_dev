@@ -5,6 +5,15 @@
 
 import { ValidationRule, ScheduleEntry, Employee, Shift } from '../models/types';
 
+/**
+ * Форматирует дату в формате YYYY-MM-DD
+ */
+function formatDate(year: number, month: number, day: number): string {
+  const m = String(month + 1).padStart(2, '0');
+  const d = String(day).padStart(2, '0');
+  return `${year}-${m}-${d}`;
+}
+
 interface ValidationViolation {
   type: string;
   severity: 'error' | 'warning' | 'info';
@@ -817,7 +826,7 @@ function validateCoverageByDay(
 
   if (dayType === 'specific' && specificDays.length > 0) {
     // Проверяем конкретные даты
-    specificDays.forEach(dateStr => {
+    specificDays.forEach((dateStr: string) => {
       const [checkYear, checkMonth, checkDay] = dateStr.split('-').map(Number);
 
       // Пропускаем, если дата не в текущем месяце

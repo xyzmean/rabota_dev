@@ -38,12 +38,6 @@ export default function DayOffRequests() {
     }
   };
 
-  const handleCreateRequest = async (request: EmployeePreferenceInput) => {
-    await preferencesApi.create(request);
-    await loadData();
-    alert('Запрос на выходной успешно создан!');
-  };
-
   const handleApproveRequest = async (id: number) => {
     try {
       // Найдем запрос для получения информации
