@@ -267,7 +267,8 @@ async function generateOptimalSchedule(
     );
 
     schedule.push(...daySchedule);
-    fillWeekendDayOffs(schedule, day, month, year, employees);
+    // Убрано автоматическое заполнение выходных в сб/вс
+    // fillWeekendDayOffs(schedule, day, month, year, employees);
   }
 
   return schedule;
@@ -830,31 +831,10 @@ function fillWeekendDayOffs(
   year: number,
   employees: Employee[]
 ) {
-  if (!isWeekendDay(year, month, day)) {
-    return;
-  }
-
-  // Автоматически заполняем выходные дни для всех сотрудников в выходные (суббота и воскресенье)
-  // согласно требованию 1.5 - выходные дни автоматически заполняются выходными
-  for (const employee of employees) {
-    const hasEntry = schedule.some(entry =>
-      entry.employee_id === employee.id &&
-      entry.day === day &&
-      entry.month === month &&
-      entry.year === year
-    );
-
-    // Если у сотрудника еще нет записи на этот день, добавляем выходной
-    if (!hasEntry) {
-      schedule.push({
-        employee_id: employee.id,
-        day,
-        month,
-        year,
-        shift_id: 'day-off'
-      });
-    }
-  }
+  // Убираем автоматическое заполнение выходных дней
+  // Сотрудники могут работать в субботу и воскресенье
+  // Выходные назначаются только по запросам или правилам валидации
+  return;
 }
 
 function isWeekendDay(year: number, month: number, day: number): boolean {

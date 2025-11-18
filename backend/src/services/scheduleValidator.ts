@@ -14,7 +14,7 @@ function formatDate(year: number, month: number, day: number): string {
   return `${year}-${m}-${d}`;
 }
 
-interface ValidationViolation {
+export interface ValidationViolation {
   type: string;
   severity: 'error' | 'warning' | 'info';
   message: string;
@@ -23,12 +23,12 @@ interface ValidationViolation {
   metadata?: Record<string, any>;
 }
 
-interface ScheduleValidationResult {
+export interface ScheduleValidationResult {
   isValid: boolean;
   violations: ValidationViolation[];
 }
 
-interface ValidationContext {
+export interface ValidationContext {
   schedule: ScheduleEntry[];
   employees: Employee[];
   shifts: Shift[];
@@ -38,6 +38,13 @@ interface ValidationContext {
     employeeId: string;
     date: string; // YYYY-MM-DD
   }>;
+}
+
+export async function evaluateValidationRule(
+  rule: ValidationRule,
+  context: ValidationContext
+): Promise<ValidationViolation[]> {
+  return validateRule(rule, context);
 }
 
 /**
