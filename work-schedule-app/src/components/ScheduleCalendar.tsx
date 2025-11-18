@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, X, AlertCircle, AlertTriangle, Info } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { Employee, Shift, ScheduleEntry, EmployeePreference, PreferenceReason } from '../types';
-import { scheduleApi, preferencesApi } from '../services/api';
+import { preferencesApi } from '../services/api';
 import { DayOffRequestViewer } from './DayOffRequestViewer';
 
 interface ScheduleCalendarProps {
@@ -30,25 +30,10 @@ export function ScheduleCalendar({
   const [month, setMonth] = useState(currentDate.getMonth());
   const [year, setYear] = useState(currentDate.getFullYear());
   const [activeCell, setActiveCell] = useState<{ employeeId: string; day: number; rect?: DOMRect } | null>(null);
-  const [validationResult, setValidationResult] = useState<ScheduleValidationResult | null>(null);
   const [viewingRequest, setViewingRequest] = useState<EmployeePreference | null>(null);
   const popupRef = useRef<HTMLDivElement>(null);
 
-  // Load validation results when month/year/schedule changes
-  useEffect(() => {
-    const loadValidation = async () => {
-      try {
-        const result = await scheduleApi.validate(month, year);
-        setValidationResult(result);
-      } catch (error) {
-        console.error('Failed to load validation:', error);
-        setValidationResult(null);
-      }
-    };
-
-    loadValidation();
-  }, [month, year, schedule]);
-
+  
   // Helper function to check if a date is today
   const isToday = (day: number) => {
     return (
@@ -58,38 +43,7 @@ export function ScheduleCalendar({
     );
   };
 
-  // Get violations for a specific cell
-  const getCellViolations = (employeeId: string, day: number): ValidationViolation[] => {
-    if (!validationResult) return [];
-
-    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-
-    return validationResult.violations.filter(v => {
-      // Violations can be for specific employee and/or date
-      const matchesEmployee = !v.employeeId || v.employeeId === employeeId;
-      const matchesDate = !v.date || v.date === dateStr;
-      return matchesEmployee && matchesDate;
-    });
-  };
-
-  // Get cell background color based on violations
-  const getCellClassName = (employeeId: string, day: number, baseClass: string): string => {
-    const violations = getCellViolations(employeeId, day);
-    if (violations.length === 0) return baseClass;
-
-    // Priority: error > warning > info
-    const hasError = violations.some(v => v.severity === 'error');
-    const hasWarning = violations.some(v => v.severity === 'warning');
-
-    if (hasError) {
-      return baseClass + ' bg-red-100 dark:bg-red-900/40 border-2 border-red-500 dark:border-red-400';
-    } else if (hasWarning) {
-      return baseClass + ' bg-yellow-100 dark:bg-yellow-900/40 border-2 border-yellow-500 dark:border-yellow-400';
-    } else {
-      return baseClass + ' bg-blue-100 dark:bg-blue-900/40 border-2 border-blue-500 dark:border-blue-400';
-    }
-  };
-
+  
   // Get day-off requests for a specific date
   const getPendingRequests = (employeeId: string, day: number): EmployeePreference | undefined => {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -131,54 +85,6 @@ export function ScheduleCalendar({
 
       // Обновим статус запроса
       await preferencesApi.updateStatus(id, 'approved');
-
-      // Создадим правило валидации для подтвержденного выходного
-      const targetDate = new Date(request.targetDate!);
-      const employee = employees.find(e => e.id === request.employeeId);
-
-      if (employee) {
-        const ruleData = {
-          ruleType: 'required_work_days' as const,
-          enabled: true,
-          config: {
-            employeeId: request.employeeId,
-            dayOfWeek: targetDate.getDay(), // 0 = Sunday, 1 = Monday, etc.
-            specificDate: request.targetDate, // YYYY-MM-DD format
-            action: 'day_off' // Выходной
-          },
-          appliesToEmployees: [request.employeeId],
-          enforcementType: 'error' as const,
-          customMessage: `Выходной для ${employee.name} (${request.targetDate})`,
-          priority: 1, // Высший приоритет
-          description: `Автоматически созданное правило для выходного дня сотрудника ${employee.name}`
-        };
-
-        // Создаем правило с высшим приоритетом
-        const newRule = await validationRulesApi.create(ruleData);
-
-        // Обновим приоритеты всех существующих правил, чтобы новое правило было первым
-        try {
-          const existingRules = await validationRulesApi.getAll();
-          const rulesToUpdate = existingRules
-            .filter(r => r.id !== newRule.id)
-            .sort((a, b) => a.priority - b.priority)
-            .map((rule, index) => ({
-              ...rule,
-              priority: index + 2 // Новые приоритеты: 2, 3, 4, ...
-            }));
-
-          // Обновляем приоритеты для каждого правила
-          for (const rule of rulesToUpdate) {
-            await validationRulesApi.update(rule.id, {
-              ...rule,
-              priority: rule.priority
-            });
-          }
-        } catch (priorityError) {
-          console.warn('Failed to update rule priorities:', priorityError);
-          // Правило создано, но приоритеты не обновлены - не критично
-        }
-      }
 
       onPreferencesChange(); // Reload preferences from parent
     } catch (error) {
@@ -405,54 +311,7 @@ export function ScheduleCalendar({
             )}
           </div>
 
-          {/* Validation Legend */}
-          {validationResult && validationResult.violations.length > 0 && (
-            <div className="mb-6 p-4 bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
-              <div className="flex items-center gap-2 mb-3">
-                <AlertTriangle size={20} className="text-orange-600 dark:text-orange-400" />
-                <h3 className="font-bold text-gray-800 dark:text-gray-100 text-lg">
-                  Обнаружены нарушения правил ({validationResult.violations.length})
-                </h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-                <div className="flex items-center gap-2 text-sm">
-                  <div className="w-4 h-4 bg-red-100 dark:bg-red-900/40 border-2 border-red-500 dark:border-red-400 rounded"></div>
-                  <AlertCircle size={16} className="text-red-600 dark:text-red-400" />
-                  <span className="text-gray-700 dark:text-gray-300">Ошибка</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <div className="w-4 h-4 bg-yellow-100 dark:bg-yellow-900/40 border-2 border-yellow-500 dark:border-yellow-400 rounded"></div>
-                  <AlertTriangle size={16} className="text-yellow-600 dark:text-yellow-400" />
-                  <span className="text-gray-700 dark:text-gray-300">Предупреждение</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <div className="w-4 h-4 bg-blue-100 dark:bg-blue-900/40 border-2 border-blue-500 dark:border-blue-400 rounded"></div>
-                  <Info size={16} className="text-blue-600 dark:text-blue-400" />
-                  <span className="text-gray-700 dark:text-gray-300">Информация</span>
-                </div>
-              </div>
-              <details className="text-sm">
-                <summary className="cursor-pointer text-orange-700 dark:text-orange-300 font-semibold hover:text-orange-800 dark:hover:text-orange-200">
-                  Показать все нарушения ({validationResult.violations.length})
-                </summary>
-                <div className="mt-3 space-y-2 max-h-60 overflow-y-auto">
-                  {validationResult.violations.map((violation, idx) => (
-                    <div key={idx} className="flex items-start gap-2 p-2 bg-white dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600">
-                      {violation.severity === 'error' ? (
-                        <AlertCircle size={16} className="text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
-                      ) : violation.severity === 'warning' ? (
-                        <AlertTriangle size={16} className="text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
-                      ) : (
-                        <Info size={16} className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-                      )}
-                      <span className="text-gray-800 dark:text-gray-200">{violation.message}</span>
-                    </div>
-                  ))}
-                </div>
-              </details>
-            </div>
-          )}
-
+          
           {/* Schedule Table */}
           <div className="overflow-x-auto relative -mx-4 md:mx-0 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-gray-800">
             {/* Mobile scroll indicator */}
@@ -504,7 +363,6 @@ export function ScheduleCalendar({
                           const isWeekend = date.getDay() === 0 || date.getDay() === 6;
                           const isActive = activeCell?.employeeId === employee.id && activeCell?.day === day;
                           const isTodayDate = isToday(day);
-                          const violations = getCellViolations(employee.id, day);
                           const pendingRequest = getPendingRequests(employee.id, day);
                           const approvedRequest = getApprovedRequests(employee.id, day);
 
@@ -517,14 +375,12 @@ export function ScheduleCalendar({
                             baseClassName += 'bg-white dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 active:bg-blue-100 dark:active:bg-blue-900/40 active:scale-95 md:hover:scale-100';
                           }
 
-                          const cellClassName = getCellClassName(employee.id, day, baseClassName);
-
+                          
                           return (
                             <td
                               key={day}
                               onClick={(e) => handleCellClick(e, employee.id, day)}
-                              className={`${cellClassName} ${isActive ? 'ring-2 ring-blue-500 dark:ring-blue-400' : ''}`}
-                              title={violations.length > 0 ? violations.map(v => v.message).join('\n') : undefined}
+                              className={`${baseClassName} ${isActive ? 'ring-2 ring-blue-500 dark:ring-blue-400' : ''}`}
                             >
                               <div className="relative">
                                 {shift && (
@@ -535,18 +391,7 @@ export function ScheduleCalendar({
                                     {shift.abbreviation}
                                   </div>
                                 )}
-                                {violations.length > 0 && (
-                                  <div className="absolute top-0 right-0 -mt-1 -mr-1">
-                                    {violations.some(v => v.severity === 'error') ? (
-                                      <AlertCircle size={12} className="text-red-600 dark:text-red-400" />
-                                    ) : violations.some(v => v.severity === 'warning') ? (
-                                      <AlertTriangle size={12} className="text-yellow-600 dark:text-yellow-400" />
-                                    ) : (
-                                      <Info size={12} className="text-blue-600 dark:text-blue-400" />
-                                    )}
-                                  </div>
-                                )}
-                                {pendingRequest && (
+                                                                {pendingRequest && (
                                   <div
                                     className="absolute bottom-0 left-0 w-2 h-2 rounded-full bg-red-600 dark:bg-red-500 cursor-pointer hover:scale-125 transition-transform"
                                     onClick={(e) => {
@@ -650,7 +495,6 @@ export function ScheduleCalendar({
               <li>• <span className="font-semibold text-red-700 dark:text-red-400">Красным</span> выделены выходные дни (суббота и воскресенье)</li>
               <li>• <span className="inline-block w-2 h-2 rounded-full bg-red-600 dark:bg-red-500"></span> Красная точка - ожидающий запрос на выходной (кликните для просмотра)</li>
               <li>• <span className="inline-block w-2 h-2 rounded-full bg-green-600 dark:bg-green-500"></span> Зеленая точка - подтвержденный выходной (кликните для просмотра)</li>
-              <li>• При подтверждении запроса автоматически создается правило с высшим приоритетом</li>
               <li>• Статистика часов отображается вверху таблицы</li>
             </ul>
           </div>
