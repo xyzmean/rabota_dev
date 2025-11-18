@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Home, Settings as SettingsIcon, PlusCircle, Calendar, User, MessageSquare, CheckCircle, XCircle, Clock, Edit2, Trash2 } from 'lucide-react';
 import { DayOffRequestModal } from '../components/DayOffRequestModal';
 import { DayOffRequestViewer } from '../components/DayOffRequestViewer';
-import { employeeApi, preferenceReasonsApi, preferencesApi, validationRulesApi } from '../services/api';
+import { employeeApi, preferenceReasonsApi, preferencesApi } from '../services/api';
 import { Employee, PreferenceReason, EmployeePreference, EmployeePreferenceInput } from '../types';
 
 export default function DayOffRequests() {
@@ -40,56 +40,7 @@ export default function DayOffRequests() {
 
   const handleApproveRequest = async (id: number) => {
     try {
-      // Найдем запрос для получения информации
-      const request = preferences.find(p => p.id === id);
-      if (!request) return;
-
-      // Обновим статус запроса
       await preferencesApi.updateStatus(id, 'approved');
-
-      // Создадим правило валидации для подтвержденного выходного
-      const employee = employees.find(e => e.id === request.employeeId);
-      if (employee) {
-        const ruleData = {
-          ruleType: 'employee_day_off' as const,
-          enabled: true,
-          config: {
-            employeeId: request.employeeId,
-            specificDate: request.targetDate, // YYYY-MM-DD format
-          },
-          appliesToEmployees: [request.employeeId],
-          enforcementType: 'error' as const,
-          customMessage: `Выходной для ${employee.name} (${request.targetDate})`,
-          priority: 1, // Высший приоритет
-          description: `Автоматически созданное правило для выходного дня сотрудника ${employee.name}`
-        };
-
-        // Создаем правило с высшим приоритетом
-        const newRule = await validationRulesApi.create(ruleData);
-
-        // Обновим приоритеты всех существующих правил
-        try {
-          const existingRules = await validationRulesApi.getAll();
-          const rulesToUpdate = existingRules
-            .filter(r => r.id !== newRule.id)
-            .sort((a, b) => a.priority - b.priority)
-            .map((rule, index) => ({
-              ...rule,
-              priority: index + 2 // Новые приоритеты: 2, 3, 4, ...
-            }));
-
-          // Обновляем приоритеты
-          for (const rule of rulesToUpdate) {
-            await validationRulesApi.update(rule.id, {
-              ...rule,
-              priority: rule.priority
-            });
-          }
-        } catch (priorityError) {
-          console.warn('Failed to update rule priorities:', priorityError);
-        }
-      }
-
       await loadData();
     } catch (err) {
       console.error('Failed to approve request:', err);

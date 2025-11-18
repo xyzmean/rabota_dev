@@ -3,15 +3,12 @@ import {
   Shift,
   ScheduleEntry,
   AppSetting,
-  ValidationRule,
-  ValidationRuleInput,
   EmployeePreference,
   EmployeePreferenceInput,
   PreferenceReason,
   PreferenceReasonInput,
   Role,
   RoleInput,
-  ScheduleValidationResult,
 } from '../types';
 
 // API URL - всегда используем относительный путь
@@ -182,11 +179,7 @@ export const scheduleApi = {
     return handleResponse<ScheduleEntry[]>(response);
   },
 
-  validate: async (month: number, year: number): Promise<ScheduleValidationResult> => {
-    const response = await fetch(`${API_URL}/schedule/validate?month=${month}&year=${year}`);
-    return handleResponse<ScheduleValidationResult>(response);
-  },
-};
+  };
 
 // === Settings API ===
 
@@ -232,65 +225,6 @@ export const settingsApi = {
   },
 };
 
-// === Validation Rules API ===
-
-export const validationRulesApi = {
-  getAll: async (): Promise<ValidationRule[]> => {
-    const response = await fetch(`${API_URL}/validation-rules`);
-    return handleResponse<ValidationRule[]>(response);
-  },
-
-  getEnabled: async (): Promise<ValidationRule[]> => {
-    const response = await fetch(`${API_URL}/validation-rules/enabled`);
-    return handleResponse<ValidationRule[]>(response);
-  },
-
-  getById: async (id: number): Promise<ValidationRule> => {
-    const response = await fetch(`${API_URL}/validation-rules/${id}`);
-    return handleResponse<ValidationRule>(response);
-  },
-
-  create: async (rule: ValidationRuleInput): Promise<ValidationRule> => {
-    const response = await fetch(`${API_URL}/validation-rules`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(rule),
-    });
-    return handleResponse<ValidationRule>(response);
-  },
-
-  update: async (id: number, rule: Partial<ValidationRuleInput>): Promise<ValidationRule> => {
-    const response = await fetch(`${API_URL}/validation-rules/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(rule),
-    });
-    return handleResponse<ValidationRule>(response);
-  },
-
-  toggle: async (id: number): Promise<ValidationRule> => {
-    const response = await fetch(`${API_URL}/validation-rules/${id}/toggle`, {
-      method: 'PATCH',
-    });
-    return handleResponse<ValidationRule>(response);
-  },
-
-  delete: async (id: number): Promise<void> => {
-    const response = await fetch(`${API_URL}/validation-rules/${id}`, {
-      method: 'DELETE',
-    });
-    return handleResponse<void>(response);
-  },
-
-  reorder: async (orderedIds: number[]): Promise<ValidationRule[]> => {
-    const response = await fetch(`${API_URL}/validation-rules/reorder`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderedIds }),
-    });
-    return handleResponse<ValidationRule[]>(response);
-  },
-};
 
 // === Employee Preferences API ===
 
@@ -452,26 +386,6 @@ export const roleApi = {
   },
 };
 
-// === Auto Schedule API ===
-
-export const autoScheduleApi = {
-  generate: async (month: number, year: number): Promise<{ success: boolean; message: string; schedule: number }> => {
-    const response = await fetch(`${API_URL}/auto-schedule/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ month, year }),
-    });
-    return handleResponse<{ success: boolean; message: string; schedule: number }>(response);
-  },
-
-  clearDatabase: async (): Promise<{ success: boolean; message: string }> => {
-    const response = await fetch(`${API_URL}/auto-schedule/clear-database`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    });
-    return handleResponse<{ success: boolean; message: string }>(response);
-  },
-};
 
 // === Database API ===
 

@@ -4,35 +4,15 @@ import { ArrowLeft, Save, Plus, Trash2, ToggleLeft, ToggleRight, Edit, Database,
 import ThemeToggle from '../components/ThemeToggle';
 import DraggableList from '../components/DraggableList';
 import { ShiftManager } from '../components/ShiftManager';
-import { ValidationRuleModal } from '../components/ValidationRuleModal';
 import { PreferenceReasonModal } from '../components/PreferenceReasonModal';
-import { validationRulesApi, preferenceReasonsApi, settingsApi, shiftsApi, employeeApi, databaseApi } from '../services/api';
-import type { ValidationRule, PreferenceReason, Shift, Employee } from '../types';
+import { preferenceReasonsApi, settingsApi, shiftsApi, employeeApi, databaseApi } from '../services/api';
+import type { PreferenceReason, Shift, Employee } from '../types';
 
-type Tab = 'general' | 'shifts' | 'rules' | 'reasons' | 'database';
+type Tab = 'general' | 'shifts' | 'reasons' | 'database';
 
-const RULE_LABELS: Record<string, string> = {
-  max_consecutive_shifts: 'Максимальное кол-во смен подряд',
-  min_employees_per_shift: 'Минимум сотрудников в смене',
-  max_employees_per_shift: 'Максимум сотрудников в смене',
-  max_employees_per_shift_type: 'Максимум людей в конкретной смене',
-  required_coverage: 'Обязательное покрытие часов/дней',
-  manager_requirements: 'Требования к УМ/ЗУМ',
-  max_total_hours: 'Максимум часов в месяц (все)',
-  max_hours_without_managers: 'Максимум часов (без УМ/ЗУМ)',
-  employee_hours_limit: 'Ограничение часов для сотрудника',
-  recommended_work_days: 'Рекомендуемое кол-во рабочих дней',
-  required_work_days: 'Конкретные рабочие дни недели',
-  coverage_by_time: 'Покрытие по времени',
-  coverage_by_day: 'Покрытие по дням',
-  shift_type_limit_per_day: 'Лимит типа смены в день',
-  max_consecutive_work_days: 'Максимум рабочих дней подряд',
-  max_consecutive_days_off: 'Максимум выходных дней подряд',
-};
 
 export default function Settings() {
   const [tab, setTab] = useState<Tab>('general');
-  const [rules, setRules] = useState<ValidationRule[]>([]);
   const [reasons, setReasons] = useState<PreferenceReason[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -40,8 +20,6 @@ export default function Settings() {
   const [businessHoursEnd, setBusinessHoursEnd] = useState('22:00');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [ruleModalOpen, setRuleModalOpen] = useState(false);
-  const [editingRule, setEditingRule] = useState<ValidationRule | null>(null);
   const [reasonModalOpen, setReasonModalOpen] = useState(false);
   const [editingReason, setEditingReason] = useState<PreferenceReason | null>(null);
   const [dbStats, setDbStats] = useState<any>(null);
@@ -60,14 +38,12 @@ export default function Settings() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [rulesData, reasonsData, shiftsData, employeesData, businessHoursData] = await Promise.all([
-        validationRulesApi.getAll(),
+      const [reasonsData, shiftsData, employeesData, businessHoursData] = await Promise.all([
         preferenceReasonsApi.getAll(),
         shiftsApi.getAll(),
         employeeApi.getAll(),
         settingsApi.getBulk(['business_hours_start', 'business_hours_end']),
       ]);
-      setRules(rulesData);
       setReasons(reasonsData);
       setShifts(shiftsData);
       setEmployees(employeesData);
@@ -100,7 +76,6 @@ export default function Settings() {
       `• Все сотрудники: ${dbStats?.employees || 0}\n` +
       `• Все смены: ${dbStats?.shifts || 0}\n` +
       `• Весь график: ${dbStats?.schedule || 0} записей\n` +
-      `• Все правила валидации: ${dbStats?.validationRules || 0}\n` +
       `• Все причины запросов: ${dbStats?.preferenceReasons || 0}\n` +
       `• Все запросы сотрудников: ${dbStats?.employeePreferences || 0}\n` +
       `• Все настройки: ${dbStats?.appSettings || 0}\n\n` +
@@ -132,17 +107,6 @@ export default function Settings() {
     }
   };
 
-  const handleRulesReorder = async (newRules: ValidationRule[]) => {
-    setRules(newRules);
-    try {
-      const orderedIds = newRules.map(r => r.id);
-      await validationRulesApi.reorder(orderedIds);
-    } catch (err) {
-      console.error('Failed to reorder rules:', err);
-      loadData();
-    }
-  };
-
   const handleReasonsReorder = async (newReasons: PreferenceReason[]) => {
     setReasons(newReasons);
     try {
@@ -154,15 +118,7 @@ export default function Settings() {
     }
   };
 
-  const toggleRule = async (id: number) => {
-    try {
-      const updated = await validationRulesApi.toggle(id);
-      setRules(rules.map(r => r.id === id ? updated : r));
-    } catch (err) {
-      console.error('Failed to toggle rule:', err);
-    }
-  };
-
+  
   const deleteReason = async (id: number) => {
     if (!confirm('Удалить причину?')) return;
     try {
@@ -264,47 +220,7 @@ export default function Settings() {
     }
   };
 
-  // Validation rules handlers
-  const handleAddRule = () => {
-    setEditingRule(null);
-    setRuleModalOpen(true);
-  };
-
-  const handleEditRule = (rule: ValidationRule) => {
-    setEditingRule(rule);
-    setRuleModalOpen(true);
-  };
-
-  const handleSaveRule = async (ruleData: Omit<ValidationRule, 'id'> & { id?: number }) => {
-    try {
-      if (ruleData.id) {
-        // Обновляем существующее правило
-        const updated = await validationRulesApi.update(ruleData.id, ruleData);
-        setRules(rules.map(r => r.id === ruleData.id ? updated : r));
-      } else {
-        // Создаём новое правило
-        const newRule = await validationRulesApi.create(ruleData);
-        setRules([...rules, newRule]);
-      }
-      setRuleModalOpen(false);
-      setEditingRule(null);
-    } catch (err) {
-      console.error('Failed to save rule:', err);
-      alert('Ошибка при сохранении правила');
-    }
-  };
-
-  const handleDeleteRule = async (id: number) => {
-    if (!confirm('Удалить это правило валидации?')) return;
-    try {
-      await validationRulesApi.delete(id);
-      setRules(rules.filter(r => r.id !== id));
-    } catch (err) {
-      console.error('Failed to delete rule:', err);
-      alert('Ошибка при удалении правила');
-    }
-  };
-
+  
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
       <header className="bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-700 dark:to-blue-800 text-white p-3 md:p-4 shadow-md">
@@ -324,8 +240,7 @@ export default function Settings() {
           {[
             { id: 'general', label: 'Общие' },
             { id: 'shifts', label: 'Часы работы и смены' },
-            { id: 'rules', label: 'Правила валидации' },
-            { id: 'reasons', label: 'Причины запросов' },
+                        { id: 'reasons', label: 'Причины запросов' },
             { id: 'database', label: 'База данных' },
           ].map(({ id, label }) => (
             <button
@@ -414,73 +329,7 @@ export default function Settings() {
               </div>
             )}
 
-            {tab === 'rules' && (
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
-                  <div className="flex-1">
-                    <h2 className="text-lg md:text-xl font-bold text-gray-900 dark:text-gray-100">
-                      Правила валидации графика
-                    </h2>
-                    <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mt-1">
-                      Перетаскивайте правила для изменения приоритета (верхние = выше приоритет)
-                    </p>
-                  </div>
-                  <button
-                    onClick={handleAddRule}
-                    className="flex items-center gap-2 px-3 md:px-4 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors text-sm md:text-base w-full sm:w-auto"
-                  >
-                    <Plus className="w-4 h-4 md:w-5 md:h-5" />
-                    <span className="hidden sm:inline">Добавить правило</span>
-                    <span className="sm:hidden">Добавить</span>
-                  </button>
-                </div>
-                <DraggableList
-                  items={rules}
-                  getId={r => r.id}
-                  onReorder={handleRulesReorder}
-                  renderItem={(rule) => (
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="font-medium text-gray-900 dark:text-gray-100">
-                          {RULE_LABELS[rule.ruleType] || rule.ruleType}
-                        </div>
-                        <div className="text-sm text-gray-600 dark:text-gray-400">
-                          {rule.description}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 ml-4">
-                        <button
-                          onClick={() => handleEditRule(rule)}
-                          className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition"
-                          title="Редактировать"
-                        >
-                          <Edit className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={() => toggleRule(rule.id)}
-                          className={`p-2 rounded transition ${
-                            rule.enabled
-                              ? 'text-green-600 dark:text-green-400'
-                              : 'text-gray-400 dark:text-gray-500'
-                          }`}
-                          title={rule.enabled ? 'Выключить' : 'Включить'}
-                        >
-                          {rule.enabled ? <ToggleRight className="w-6 h-6" /> : <ToggleLeft className="w-6 h-6" />}
-                        </button>
-                        <button
-                          onClick={() => handleDeleteRule(rule.id)}
-                          className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition"
-                          title="Удалить"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                />
-              </div>
-            )}
-
+            
             {tab === 'reasons' && (
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 md:mb-4 gap-3">
@@ -565,13 +414,7 @@ export default function Settings() {
                         </div>
                         <div className="text-sm text-gray-600 dark:text-gray-400">Записи графика</div>
                       </div>
-                      <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 md:p-4">
-                        <div className="text-2xl md:text-3xl font-bold text-orange-600 dark:text-orange-400">
-                          {dbStats.validationRules || 0}
-                        </div>
-                        <div className="text-sm text-gray-600 dark:text-gray-400">Правила валидации</div>
-                      </div>
-                      <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 md:p-4">
+                                            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 md:p-4">
                         <div className="text-2xl md:text-3xl font-bold text-pink-600 dark:text-pink-400">
                           {dbStats.preferenceReasons || 0}
                         </div>
@@ -641,19 +484,7 @@ export default function Settings() {
         )}
       </div>
 
-      {/* Modal for adding/editing validation rules */}
-      {ruleModalOpen && (
-        <ValidationRuleModal
-          rule={editingRule}
-          employees={employees}
-          onSave={handleSaveRule}
-          onClose={() => {
-            setRuleModalOpen(false);
-            setEditingRule(null);
-          }}
-        />
-      )}
-
+      
       {/* Modal for adding/editing preference reasons */}
       {reasonModalOpen && (
         <PreferenceReasonModal

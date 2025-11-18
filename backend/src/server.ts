@@ -9,11 +9,9 @@ import employeeRoutes from './routes/employeeRoutes';
 import shiftRoutes from './routes/shiftRoutes';
 import scheduleRoutes from './routes/scheduleRoutes';
 import settingsRoutes from './routes/settingsRoutes';
-import validationRulesRoutes from './routes/validationRulesRoutes';
 import preferencesRoutes from './routes/preferencesRoutes';
 import preferenceReasonsRoutes from './routes/preferenceReasonsRoutes';
 import roleRoutes from './routes/roleRoutes';
-import autoScheduleRoutes from './routes/autoScheduleRoutes';
 import databaseRoutes from './routes/databaseRoutes';
 
 // Загрузка переменных окружения
@@ -68,11 +66,9 @@ app.use('/api/employees', employeeRoutes);
 app.use('/api/shifts', shiftRoutes);
 app.use('/api/schedule', scheduleRoutes);
 app.use('/api/settings', settingsRoutes);
-app.use('/api/validation-rules', validationRulesRoutes);
 app.use('/api/preferences', preferencesRoutes);
 app.use('/api/preference-reasons', preferenceReasonsRoutes);
 app.use('/api/roles', roleRoutes);
-app.use('/api/auto-schedule', autoScheduleRoutes);
 app.use('/api/database', databaseRoutes);
 
 // Health check endpoint
@@ -94,11 +90,9 @@ app.get('/', (req: Request, res: Response) => {
       shifts: '/api/shifts',
       schedule: '/api/schedule',
       settings: '/api/settings',
-      validationRules: '/api/validation-rules',
       preferences: '/api/preferences',
       preferenceReasons: '/api/preference-reasons',
       roles: '/api/roles',
-      autoSchedule: '/api/auto-schedule',
       database: '/api/database',
       health: '/health'
     }

@@ -7,7 +7,6 @@ export interface RolePermissions {
   view_statistics?: boolean;        // Просмотр статистики
   approve_preferences?: boolean;    // Одобрение запросов сотрудников
   manage_roles?: boolean;           // Управление ролями
-  manage_validation_rules?: boolean; // Управление правилами валидации
 }
 
 // Роль с настраиваемыми правами
@@ -74,52 +73,6 @@ export interface AppSetting {
   description?: string;
 }
 
-// Правила валидации
-export type ValidationRuleType =
-  | 'max_consecutive_shifts'
-  | 'min_employees_per_shift'
-  | 'max_employees_per_shift'
-  | 'max_employees_per_shift_type'
-  | 'required_coverage'
-  | 'manager_requirements'
-  | 'max_total_hours'
-  | 'max_hours_without_managers'
-  | 'employee_hours_limit'
-  | 'recommended_work_days'
-  | 'required_work_days'
-  | 'coverage_by_time'
-  | 'coverage_by_day'
-  | 'shift_type_limit_per_day'
-  | 'max_consecutive_work_days'
-  | 'max_consecutive_days_off'
-  | 'employee_day_off';
-
-export type EnforcementType = 'warning' | 'error' | 'info';
-
-export interface ValidationRule {
-  id: number;
-  ruleType: ValidationRuleType;
-  enabled: boolean;
-  config: Record<string, any>; // JSON object
-  appliesToRoles?: EmployeeRole[];
-  appliesToEmployees?: string[]; // Array of employee IDs
-  enforcementType?: EnforcementType;
-  customMessage?: string;
-  priority: number;
-  description?: string;
-}
-
-export interface ValidationRuleInput {
-  ruleType: ValidationRuleType;
-  enabled: boolean;
-  config: Record<string, any>;
-  appliesToRoles?: EmployeeRole[];
-  appliesToEmployees?: string[];
-  enforcementType?: EnforcementType;
-  customMessage?: string;
-  priority?: number;
-  description?: string;
-}
 
 // Причины для запросов сотрудников
 export interface PreferenceReason {
@@ -164,17 +117,3 @@ export interface EmployeePreferenceInput {
   notes?: string;
 }
 
-// Результаты валидации
-export interface ValidationViolation {
-  type: ValidationRuleType;
-  severity: 'error' | 'warning' | 'info';
-  message: string;
-  employeeId?: string;
-  date?: string; // YYYY-MM-DD
-  metadata?: Record<string, any>;
-}
-
-export interface ScheduleValidationResult {
-  isValid: boolean;
-  violations: ValidationViolation[];
-}

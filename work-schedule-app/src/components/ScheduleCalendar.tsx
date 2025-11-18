@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, X, AlertCircle, AlertTriangle, Info } from 'lucide-react';
-import { Employee, Shift, ScheduleEntry, ValidationViolation, ScheduleValidationResult, EmployeePreference, PreferenceReason } from '../types';
-import { scheduleApi, preferencesApi, validationRulesApi } from '../services/api';
+import { Employee, Shift, ScheduleEntry, EmployeePreference, PreferenceReason } from '../types';
+import { scheduleApi, preferencesApi } from '../services/api';
 import { DayOffRequestViewer } from './DayOffRequestViewer';
 
 interface ScheduleCalendarProps {

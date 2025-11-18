@@ -5,9 +5,8 @@ import EmployeeManager from '../components/EmployeeManager';
 import { ScheduleCalendar } from '../components/ScheduleCalendar';
 import { NotificationPanel } from '../components/NotificationPanel';
 import { DayOffRequestViewer } from '../components/DayOffRequestViewer';
-import { shiftsApi, scheduleApi, employeeApi, preferencesApi, preferenceReasonsApi, autoScheduleApi } from '../services/api';
+import { shiftsApi, scheduleApi, employeeApi, preferencesApi, preferenceReasonsApi } from '../services/api';
 import { Employee, Shift, ScheduleEntry, EmployeePreference, PreferenceReason } from '../types';
-import { Wand2 } from 'lucide-react';
 
 type Tab = 'schedule' | 'employees';
 
@@ -20,9 +19,7 @@ export default function Schedule() {
   const [reasons, setReasons] = useState<PreferenceReason[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewingRequest, setViewingRequest] = useState<EmployeePreference | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isClearing, setIsClearing] = useState(false);
-
+  
   // Load all data from API
   useEffect(() => {
     loadData();
@@ -126,82 +123,8 @@ export default function Schedule() {
     setViewingRequest(preference);
   };
 
-  // Auto schedule generation
-  const handleGenerateSchedule = async () => {
-    const currentDate = new Date();
-    const month = currentDate.getMonth();
-    const year = currentDate.getFullYear();
-
-    // Подтверждение от пользователя
-    const confirmMessage = `Вы уверены, что хотите сгенерировать график автоматически за ${month + 1}/${year}?\n\n` +
-      'Это удалит все существующие записи графика за указанный месяц и создаст новый график на основе правил валидации.\n\n' +
-      'График будет учитывать все включенные правила валидации и приоритеты.';
-
-    if (!confirm(confirmMessage)) {
-      return;
-    }
-
-    setIsGenerating(true);
-    try {
-      const result = await autoScheduleApi.generate(month, year);
-
-      if (result.success) {
-        alert(`График успешно сгенерирован!\n${result.message}\n\nСоздано записей: ${result.schedule}`);
-        // Перезагружаем данные
-        await loadData();
-      } else {
-        alert('Ошибка при генерации графика. Пожалуйста, попробуйте еще раз.');
-      }
-    } catch (error) {
-      console.error('Failed to generate schedule:', error);
-      alert('Произошла ошибка при генерации графика. Пожалуйста, проверьте консоль для деталей.');
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  // Full database clear
-  const handleClearDatabase = async () => {
-    // Подтверждение от пользователя
-    const confirmMessage = `⚠️ ВНИМАНИЕ! ⚠️\n\n` +
-      'Вы уверены, что хотите полностью очистить базу данных?\n\n' +
-      'Это действие НЕОБРАТИМО и удалит:\n' +
-      '• Все графики\n' +
-      '• Всех сотрудников\n' +
-      '• Все смены\n' +
-      '• Все настройки\n' +
-      '• Все правила валидации\n' +
-      '• Все запросы сотрудников\n' +
-      '• Все причины запросов\n' +
-      '• Все роли\n\n' +
-      'После очистки потребуется начальная настройка системы.\n\n' +
-      'Для подтверждения введите: УДАЛИТЬ_ВСЕ';
-
-    const confirmation = prompt(confirmMessage);
-    if (confirmation !== 'УДАЛИТЬ_ВСЕ') {
-      alert('Очистка базы данных отменена.');
-      return;
-    }
-
-    setIsClearing(true);
-    try {
-      const result = await autoScheduleApi.clearDatabase();
-
-      if (result.success) {
-        alert('База данных полностью очищена! Страница будет перезагружена.');
-        // Перезагружаем страницу для очистки состояния
-        window.location.reload();
-      } else {
-        alert('Ошибка при очистке базы данных. Пожалуйста, попробуйте еще раз.');
-      }
-    } catch (error) {
-      console.error('Failed to clear database:', error);
-      alert('Произошла ошибка при очистке базы данных. Пожалуйста, проверьте консоль для деталей.');
-    } finally {
-      setIsClearing(false);
-    }
-  };
-
+  
+  
   const tabs: { id: Tab; label: string; icon: React.ReactElement }[] = [
     { id: 'schedule', label: 'График работы', icon: <Calendar size={20} /> },
     { id: 'employees', label: 'Сотрудники', icon: <Users size={20} /> },
@@ -238,41 +161,7 @@ export default function Schedule() {
       </header>
 
       <div className="container mx-auto px-4 py-6">
-        {/* Auto Schedule Button */}
-        <div className="mb-6">
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div>
-                <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-1">
-                  Автоматическая генерация графика
-                </h3>
-                <p className="text-sm text-blue-700 dark:text-blue-300">
-                  Создайте график автоматически на основе правил валидации с учетом приоритетов.
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={handleGenerateSchedule}
-                  disabled={isGenerating}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors shadow-md hover:shadow-lg disabled:cursor-not-allowed"
-                >
-                  <Wand2 size={18} className={isGenerating ? 'animate-spin' : ''} />
-                  {isGenerating ? 'Генерация...' : 'Автографик'}
-                </button>
-                <button
-                  onClick={handleClearDatabase}
-                  disabled={isClearing}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white rounded-lg transition-colors shadow-md hover:shadow-lg disabled:cursor-not-allowed"
-                  title="Полная очистка базы данных (необратимо)"
-                >
-                  <Trash2 size={18} className={isClearing ? 'animate-pulse' : ''} />
-                  {isClearing ? 'Очистка...' : 'Очистить БД'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
+        
         {/* Notification Panel */}
         <div className="mb-6">
           <NotificationPanel
