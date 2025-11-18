@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Users, Home, Settings as SettingsIcon, Trash2 } from 'lucide-react';
+import { Calendar, Users, Home, Settings as SettingsIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import EmployeeManager from '../components/EmployeeManager';
 import { ScheduleCalendar } from '../components/ScheduleCalendar';
 import { NotificationPanel } from '../components/NotificationPanel';
 import { DayOffRequestViewer } from '../components/DayOffRequestViewer';
-import { shiftsApi, scheduleApi, employeeApi, preferencesApi, preferenceReasonsApi } from '../services/api';
+import { shiftsApi, scheduleApi, employeeApi, preferencesApi, preferenceReasonsApi, AutoScheduleResult, RuleViolation, ScheduleMetrics } from '../services/api';
 import { Employee, Shift, ScheduleEntry, EmployeePreference, PreferenceReason } from '../types';
+import { AutoSchedManager } from '../components/AutoSchedManager';
 
 type Tab = 'schedule' | 'employees';
 
 export default function Schedule() {
+  const today = new Date();
   const [activeTab, setActiveTab] = useState<Tab>('schedule');
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -19,6 +21,12 @@ export default function Schedule() {
   const [reasons, setReasons] = useState<PreferenceReason[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewingRequest, setViewingRequest] = useState<EmployeePreference | null>(null);
+
+  // AutoSched state
+  const [currentMonth, setCurrentMonth] = useState(today.getMonth());
+  const [currentYear, setCurrentYear] = useState(today.getFullYear());
+  // const [scheduleViolations, setScheduleViolations] = useState<RuleViolation[]>([]);
+  // const [scheduleMetrics, setScheduleMetrics] = useState<ScheduleMetrics | null>(null);
   
   // Load all data from API
   useEffect(() => {
@@ -123,6 +131,24 @@ export default function Schedule() {
     setViewingRequest(preference);
   };
 
+  // AutoSched handlers
+  const handleScheduleGenerated = async (_result: AutoScheduleResult) => {
+    // Reload schedule data after generation
+    await loadData();
+    // setScheduleViolations(result.violations);
+    // setScheduleMetrics(result.metrics);
+  };
+
+  const handleValidationComplete = (_violations: RuleViolation[], _metrics: ScheduleMetrics) => {
+    // setScheduleViolations(violations);
+    // setScheduleMetrics(metrics);
+  };
+
+  const handleMonthChange = (month: number, year: number) => {
+    setCurrentMonth(month);
+    setCurrentYear(year);
+  };
+
   
   
   const tabs: { id: Tab; label: string; icon: React.ReactElement }[] = [
@@ -161,7 +187,19 @@ export default function Schedule() {
       </header>
 
       <div className="container mx-auto px-4 py-6">
-        
+
+        {/* AutoSched Manager */}
+        <div className="mb-6">
+          <AutoSchedManager
+            month={currentMonth}
+            year={currentYear}
+            employees={employees}
+            shifts={shifts}
+            onScheduleGenerated={handleScheduleGenerated}
+            onValidationComplete={handleValidationComplete}
+          />
+        </div>
+
         {/* Notification Panel */}
         <div className="mb-6">
           <NotificationPanel
@@ -210,6 +248,7 @@ export default function Schedule() {
                   onScheduleChange={handleScheduleChange}
                   onScheduleRemove={handleScheduleRemove}
                   onPreferencesChange={loadData}
+                  onMonthChange={handleMonthChange}
                 />
               )}
 

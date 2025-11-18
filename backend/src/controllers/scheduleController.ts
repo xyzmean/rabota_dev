@@ -340,17 +340,10 @@ export const validateScheduleController = async (req: Request, res: Response): P
     );
 
     // Выполняем валидацию
-    const validationResult = await validateSchedule(
-      {
-        schedule: scheduleResult.rows,
-        employees,
-        shifts: shiftsResult.rows,
-        month: monthNum,
-        year: yearNum,
-        approvedDayOffs: approvedDayOffsResult.rows,
-      },
-      rules
-    );
+    const validationResult = await validateSchedule({
+      month: monthNum,
+      year: yearNum
+    });
 
     res.json(validationResult);
   } catch (error) {

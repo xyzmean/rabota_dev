@@ -13,6 +13,7 @@ interface ScheduleCalendarProps {
   onScheduleChange: (entry: ScheduleEntry) => void;
   onScheduleRemove: (employeeId: string, day: number, month: number, year: number) => void;
   onPreferencesChange: () => void;
+  onMonthChange?: (month: number, year: number) => void;
 }
 
 export function ScheduleCalendar({
@@ -23,7 +24,8 @@ export function ScheduleCalendar({
   reasons,
   onScheduleChange,
   onScheduleRemove,
-  onPreferencesChange
+  onPreferencesChange,
+  onMonthChange
 }: ScheduleCalendarProps) {
   const today = new Date();
   const [currentDate] = useState(today);
@@ -114,20 +116,36 @@ export function ScheduleCalendar({
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
   const goToPreviousMonth = () => {
+    let newMonth = month - 1;
+    let newYear = year;
+
     if (month === 0) {
-      setMonth(11);
-      setYear(year - 1);
-    } else {
-      setMonth(month - 1);
+      newMonth = 11;
+      newYear = year - 1;
+    }
+
+    setMonth(newMonth);
+    setYear(newYear);
+
+    if (onMonthChange) {
+      onMonthChange(newMonth, newYear);
     }
   };
 
   const goToNextMonth = () => {
+    let newMonth = month + 1;
+    let newYear = year;
+
     if (month === 11) {
-      setMonth(0);
-      setYear(year + 1);
-    } else {
-      setMonth(month + 1);
+      newMonth = 0;
+      newYear = year + 1;
+    }
+
+    setMonth(newMonth);
+    setYear(newYear);
+
+    if (onMonthChange) {
+      onMonthChange(newMonth, newYear);
     }
   };
 

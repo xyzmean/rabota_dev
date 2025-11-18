@@ -13,6 +13,7 @@ import preferencesRoutes from './routes/preferencesRoutes';
 import preferenceReasonsRoutes from './routes/preferenceReasonsRoutes';
 import roleRoutes from './routes/roleRoutes';
 import databaseRoutes from './routes/databaseRoutes';
+import autoScheduleRoutes from './routes/autoScheduleRoutes';
 
 // Загрузка переменных окружения
 dotenv.config();
@@ -70,6 +71,7 @@ app.use('/api/preferences', preferencesRoutes);
 app.use('/api/preference-reasons', preferenceReasonsRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/database', databaseRoutes);
+app.use('/api/auto-schedule', autoScheduleRoutes);
 
 // Health check endpoint
 app.get('/health', (req: Request, res: Response) => {
@@ -84,7 +86,7 @@ app.get('/health', (req: Request, res: Response) => {
 app.get('/', (req: Request, res: Response) => {
   res.json({
     message: 'RaboTA API Server',
-    version: '2.2.0',
+    version: '3.0.0', // Updated version for AutoSched
     endpoints: {
       employees: '/api/employees',
       shifts: '/api/shifts',
@@ -94,6 +96,7 @@ app.get('/', (req: Request, res: Response) => {
       preferenceReasons: '/api/preference-reasons',
       roles: '/api/roles',
       database: '/api/database',
+      autoSchedule: '/api/auto-schedule',
       health: '/health'
     }
   });
