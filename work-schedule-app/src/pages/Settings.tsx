@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Save, Plus, Trash2, ToggleLeft, ToggleRight, Edit, Database, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Trash2, Database, AlertTriangle } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
 import DraggableList from '../components/DraggableList';
 import { ShiftManager } from '../components/ShiftManager';
 import { PreferenceReasonModal } from '../components/PreferenceReasonModal';
-import { preferenceReasonsApi, settingsApi, shiftsApi, employeeApi, databaseApi } from '../services/api';
-import type { PreferenceReason, Shift, Employee } from '../types';
+import { preferenceReasonsApi, settingsApi, shiftsApi, databaseApi } from '../services/api';
+import type { PreferenceReason, Shift } from '../types';
 
 type Tab = 'general' | 'shifts' | 'reasons' | 'database';
 
@@ -15,7 +15,6 @@ export default function Settings() {
   const [tab, setTab] = useState<Tab>('general');
   const [reasons, setReasons] = useState<PreferenceReason[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>([]);
   const [businessHoursStart, setBusinessHoursStart] = useState('08:00');
   const [businessHoursEnd, setBusinessHoursEnd] = useState('22:00');
   const [loading, setLoading] = useState(false);
@@ -38,15 +37,13 @@ export default function Settings() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [reasonsData, shiftsData, employeesData, businessHoursData] = await Promise.all([
+      const [reasonsData, shiftsData, businessHoursData] = await Promise.all([
         preferenceReasonsApi.getAll(),
         shiftsApi.getAll(),
-        employeeApi.getAll(),
         settingsApi.getBulk(['business_hours_start', 'business_hours_end']),
       ]);
       setReasons(reasonsData);
       setShifts(shiftsData);
-      setEmployees(employeesData);
 
       // Загружаем часы работы
       const startSetting = businessHoursData.find(s => s.key === 'business_hours_start');

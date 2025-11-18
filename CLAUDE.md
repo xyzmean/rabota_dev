@@ -13,21 +13,29 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Текущие модули
 
 - **График работы** (`/schedule`) - Система управления графиком и сотрудниками
-  - Управление сотрудниками с динамическими ролями
+  - Управление сотрудниками с динамическими ролями и правами доступа
   - Визуальный календарь с назначением смен
   - Просмотр и редактирование графика работы
+  - Система AutoSched для автоматической генерации графиков
+  - Валидация графиков с настраиваемыми правилами
   - Хранение данных в PostgreSQL через REST API
   - Полная поддержка темной темы
+
+- **Запросы на выходные** (`/day-off-requests`) - Система управления запросами сотрудников
+  - Создание и просмотр запросов на выходные дни
+  - Приоритизация запросов с цветовой индикацией
+  - Управление причинами для запросов
 
 - **Настройки** (`/settings`) - Централизованные настройки приложения
   - **Общие**: Переключение темной/светлой темы
   - **Часы работы и смены**:
     - Настройка времени работы предприятия (начало/окончание)
     - Управление сменами (создание, редактирование, удаление)
-    - Настройка временных интервалов смен (время начала/окончания)
+    - Настройка временных интервалов смен (время начала/окончание)
     - Цветовое оформление смен с предпросмотром
-  - **Правила валидации**: Управление правилами с drag-and-drop для приоритетов
+  - **Управление ролями**: Создание и настройка ролей с правами доступа
   - **Причины запросов**: Управление причинами для запросов сотрудников
+  - **Управление базой данных**: Статистика и очистка данных
 
 ## Technology Stack
 
@@ -75,25 +83,35 @@ RaboTA/
 │   │   │   ├── shiftController.ts
 │   │   │   ├── scheduleController.ts
 │   │   │   ├── settingsController.ts
-│   │   │   ├── validationRulesController.ts
 │   │   │   ├── preferencesController.ts
-│   │   │   └── preferenceReasonsController.ts
+│   │   │   ├── preferenceReasonsController.ts
+│   │   │   ├── roleController.ts
+│   │   │   ├── databaseController.ts
+│   │   │   └── autoScheduleController.ts
 │   │   ├── db/               # База данных
 │   │   │   ├── schema.sql    # SQL схема
 │   │   │   ├── migrations.ts # Система миграций
 │   │   │   └── migrations/   # Файлы миграций
 │   │   │       ├── 001_add_settings_and_validation.sql
 │   │   │       └── 002_add_roles_system.sql
+│   │   ├── middleware/       # Express middleware
+│   │   │   └── auth.ts       # Аутентификация и авторизация
 │   │   ├── models/           # Модели данных
 │   │   │   └── types.ts      # TypeScript типы
+│   │   ├── routes/           # API маршруты
+│   │   ├── services/         # Бизнес-логика
+│   │   │   ├── autoScheduler.ts     # Автоматическая генерация графиков
+│   │   │   └── scheduleValidator.ts # Валидация графиков
 │   │   ├── routes/           # API маршруты
 │   │   │   ├── employeeRoutes.ts
 │   │   │   ├── shiftRoutes.ts
 │   │   │   ├── scheduleRoutes.ts
 │   │   │   ├── settingsRoutes.ts
-│   │   │   ├── validationRulesRoutes.ts
 │   │   │   ├── preferencesRoutes.ts
-│   │   │   └── preferenceReasonsRoutes.ts
+│   │   │   ├── preferenceReasonsRoutes.ts
+│   │   │   ├── roleRoutes.ts
+│   │   │   ├── databaseRoutes.ts
+│   │   │   └── autoScheduleRoutes.ts
 │   │   └── server.ts         # Точка входа сервера
 │   ├── package.json          # Зависимости backend
 │   ├── tsconfig.json         # TypeScript конфигурация
@@ -106,15 +124,20 @@ RaboTA/
 │   │   │   ├── ScheduleCalendar.tsx
 │   │   │   ├── ShiftManager.tsx
 │   │   │   ├── ThemeToggle.tsx
-│   │   │   └── DraggableList.tsx
+│   │   │   ├── DraggableList.tsx
+│   │   │   ├── RoleManager.tsx
+│   │   │   ├── AutoSchedManager.tsx
+│   │   │   ├── DayOffRequestModal.tsx
+│   │   │   ├── DayOffRequestViewer.tsx
+│   │   │   ├── PreferenceReasonModal.tsx
+│   │   │   └── NotificationPanel.tsx
 │   │   ├── contexts/         # React contexts
 │   │   │   └── ThemeContext.tsx
 │   │   ├── pages/            # Страницы приложения
 │   │   │   ├── Home.tsx      # Главная страница (/)
 │   │   │   ├── Schedule.tsx  # График работы (/schedule)
+│   │   │   ├── DayOffRequests.tsx  # Запросы на выходные (/day-off-requests)
 │   │   │   └── Settings.tsx  # Настройки (/settings)
-│   │   ├── hooks/            # Custom React hooks
-│   │   │   └── useLocalStorage.ts
 │   │   ├── services/         # API сервисы
 │   │   │   └── api.ts        # REST API клиент
 │   │   ├── types.ts          # TypeScript типы
@@ -147,6 +170,7 @@ RaboTA/
 Приложение использует React Router для навигации:
 - `/` - Главная страница с карточками модулей
 - `/schedule` - Модуль управления графиком работы
+- `/day-off-requests` - Модуль управления запросами на выходные
 - `/settings` - Настройки приложения
 
 ### Data Management
@@ -250,14 +274,15 @@ docker compose up --build -d
 5. Создайте API endpoints в backend если требуется
 
 ### Styling
-- Используйте Tailwind CSS классы для стилизации
+- Используйте Tailwind CSS классы и кастомные компоненты из `index.css`
 - **Темная тема** - ОБЯЗАТЕЛЬНА для всех новых компонентов через `dark:` префикс (Tailwind dark mode: 'class')
   - Все страницы и компоненты должны поддерживать темную тему
-  - Используйте `dark:bg-gray-800/900`, `dark:text-gray-100/200/400` для текста
-  - Применяйте `dark:border-gray-700` для границ
-- Следуйте существующей цветовой схеме (синий градиент для header)
+  - Используйте готовые классы: `.card`, `.btn`, `.btn-primary`, `.input`, `.alert-success` и др.
+  - Применяйте `primary-600/700` для брендовых цветов
+- Следуйте существующей цветовой схеме (синий градиент для primary)
 - Адаптивный дизайн через Tailwind responsive breakpoints
-- Используйте переходы (transition-colors, transition-shadow) для плавной смены тем
+- Используйте переходы (`transition-colors`, `transition-shadow`) для плавной смены тем
+- Улучшенные скроллбары стилизованы через кастомные CSS классы
 
 ### TypeScript
 - Все типы должны быть определены в `src/types.ts` или локально в компонентах
@@ -338,6 +363,22 @@ docker compose up --build -d
 - `PUT /api/preference-reasons/:id` - Обновить причину
 - `POST /api/preference-reasons/reorder` - Изменить порядок причин (drag-and-drop)
 - `DELETE /api/preference-reasons/:id` - Удалить причину
+
+### Roles
+- `GET /api/roles` - Получить все роли
+- `GET /api/roles/:id` - Получить роль по ID
+- `POST /api/roles` - Создать роль
+- `PUT /api/roles/:id` - Обновить роль
+- `DELETE /api/roles/:id` - Удалить роль
+
+### Database Management
+- `GET /api/database/stats` - Получить статистику БД
+- `DELETE /api/database/clear` - Полная очистка БД
+- `DELETE /api/database/schedule` - Очистка графика
+
+### Auto Schedule (AutoSched)
+- `POST /api/auto-schedule/generate` - Сгенерировать график автоматически
+- `GET /api/auto-schedule/status` - Получить статус генерации
 
 ### Health
 - `GET /health` - Проверка состояния сервера

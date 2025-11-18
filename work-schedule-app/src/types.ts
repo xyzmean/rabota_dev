@@ -7,6 +7,7 @@ export interface RolePermissions {
   view_statistics?: boolean;        // Просмотр статистики
   approve_preferences?: boolean;    // Одобрение запросов сотрудников
   manage_roles?: boolean;           // Управление ролями
+  manage_validation_rules?: boolean; // Управление правилами валидации
 }
 
 // Роль с настраиваемыми правами
