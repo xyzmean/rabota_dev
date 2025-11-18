@@ -20,12 +20,21 @@ ALTER TABLE employees ADD COLUMN IF NOT EXISTS role_id INTEGER REFERENCES roles(
 CREATE INDEX IF NOT EXISTS idx_roles_name ON roles(name);
 CREATE INDEX IF NOT EXISTS idx_employees_role ON employees(role_id);
 
--- 4. Триггер для автоматического обновления updated_at
+-- 4. Функция для обновления updated_at (если не существует)
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- 5. Триггер для автоматического обновления updated_at
 DROP TRIGGER IF EXISTS update_roles_updated_at ON roles;
 CREATE TRIGGER update_roles_updated_at BEFORE UPDATE ON roles
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- 5. Вставка дефолтных ролей с правами доступа
+-- 6. Вставка дефолтных ролей с правами доступа
 INSERT INTO roles (name, permissions, color, description, is_system) VALUES
     ('Управляющий', '{
         "manage_schedule": true,
@@ -72,7 +81,7 @@ INSERT INTO roles (name, permissions, color, description, is_system) VALUES
     }'::jsonb, '#6b7280', 'Базовый доступ - просмотр своего графика', true)
 ON CONFLICT (name) DO NOTHING;
 
--- 6. Миграция данных из старого поля role в role_id
+-- 7. Миграция данных из старого поля role в role_id
 -- Обновляем существующих сотрудников, назначая им соответствующие роли
 UPDATE employees
 SET role_id = (SELECT id FROM roles WHERE name = 'Управляющий')
@@ -90,5 +99,5 @@ UPDATE employees
 SET role_id = (SELECT id FROM roles WHERE name = 'Сотрудник')
 WHERE role = 'employee' OR role IS NULL;
 
--- 7. Удаление старого поля role (после миграции данных)
+-- 8. Удаление старого поля role (после миграции данных)
 ALTER TABLE employees DROP COLUMN IF EXISTS role;

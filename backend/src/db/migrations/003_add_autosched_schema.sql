@@ -5,12 +5,13 @@
 -- 1. Улучшение таблицы rules валидации для соответствия AutoSched требованиям
 ALTER TABLE validation_rules
 ADD COLUMN IF NOT EXISTS enforcement_type VARCHAR(50) DEFAULT 'warning' CHECK (enforcement_type IN ('error', 'warning')),
-ADD COLUMN IF NOT applies_to_employees VARCHAR(255)[], -- Массив ID сотрудников для индивидуальных правил
+ADD COLUMN IF NOT EXISTS applies_to_employees TEXT[], -- Массив ID сотрудников для индивидуальных правил
 ADD COLUMN IF NOT EXISTS custom_message TEXT; -- Кастомное сообщение об ошибке
 
 -- 2. Улучшение таблицы employee_preferences для лучшей интеграции
 ALTER TABLE employee_preferences
-ADD COLUMN IF NOT EXISTS preference_date_range DATE RANGE, -- Для периодических запросов
+ADD COLUMN IF NOT EXISTS preference_start_date DATE, -- Начало периода запросов
+ADD COLUMN IF NOT EXISTS preference_end_date DATE, -- Конец периода запросов
 ADD COLUMN IF NOT EXISTS auto_process BOOLEAN DEFAULT false, -- Флаг автоматической обработки
 ADD COLUMN IF NOT EXISTS conflict_resolution VARCHAR(50) DEFAULT 'manual'; -- Как разрешать конфликты
 
@@ -100,7 +101,16 @@ CREATE INDEX IF NOT EXISTS idx_validation_rules_enforcement ON validation_rules(
 CREATE INDEX IF NOT EXISTS idx_employee_preferences_auto_process ON employee_preferences(auto_process);
 CREATE INDEX IF NOT EXISTS idx_shifts_coverage_priority ON shifts(coverage_priority);
 
--- 10. Триггеры для автоматического обновления updated_at
+-- 10. Функция для обновления updated_at (если не существует)
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- 11. Триггеры для автоматического обновления updated_at
 DROP TRIGGER IF EXISTS update_schedule_generations_updated_at ON schedule_generations;
 CREATE TRIGGER update_schedule_generations_updated_at BEFORE UPDATE ON schedule_generations
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -113,7 +123,7 @@ DROP TRIGGER IF EXISTS update_employee_workload_stats_updated_at ON employee_wor
 CREATE TRIGGER update_employee_workload_stats_updated_at BEFORE UPDATE ON employee_workload_stats
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- 11. Вставка базовых шаблонов графиков
+-- 12. Вставка базовых шаблонов графиков
 INSERT INTO schedule_templates (name, description, pattern_data) VALUES
     ('Стандартный 5/2', 'Стандартный график 5 рабочих дней, 2 выходных', '{
         "monday": ["morning", "evening"],
@@ -144,7 +154,7 @@ INSERT INTO schedule_templates (name, description, pattern_data) VALUES
     }')
 ON CONFLICT DO NOTHING;
 
--- 12. Обновление существующих смен с параметрами по умолчанию
+-- 13. Обновление существующих смен с параметрами по умолчанию
 UPDATE shifts SET
     min_staff = CASE
         WHEN name = 'Выходной' THEN 0
@@ -169,7 +179,7 @@ UPDATE shifts SET
     END
 WHERE min_staff IS NULL OR max_staff IS NULL;
 
--- 13. Создание представления для быстрого доступа к статистике валидации
+-- 14. Создание представления для быстрого доступа к статистике валидации
 CREATE OR REPLACE VIEW validation_summary AS
 SELECT
     vr.id,
@@ -188,7 +198,7 @@ LEFT JOIN rule_priorities rp ON vr.id = rp.rule_id
 GROUP BY vr.id, vr.rule_type, vr.enabled, vr.enforcement_type, vr.priority, rp.priority_level, rp.weight_factor, vr.description
 ORDER BY rp.priority_level ASC, vr.priority ASC;
 
--- 14. Добавление COMMENTS для документации
+-- 15. Добавление COMMENTS для документации
 COMMENT ON TABLE schedule_generations IS 'История автогенераций графиков с метриками и результатами';
 COMMENT ON TABLE rule_priorities IS 'Приоритеты правил для динамической оптимизации';
 COMMENT ON TABLE schedule_optimizations IS 'История оптимизаций графиков с метриками';

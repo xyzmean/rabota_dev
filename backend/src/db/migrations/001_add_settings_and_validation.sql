@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS validation_rules (
     enabled BOOLEAN DEFAULT TRUE, -- Включено ли правило
     config JSONB NOT NULL, -- Конфигурация правила в JSON
     applies_to_roles VARCHAR(255)[], -- Массив ролей, к которым применяется правило (null = все)
+    applies_to_employees TEXT[], -- Массив ID сотрудников, к которым применяется правило (null = все)
     priority INTEGER DEFAULT 0, -- Приоритет правила (для сортировки)
     description TEXT, -- Описание правила
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
