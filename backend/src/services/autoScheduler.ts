@@ -370,15 +370,9 @@ export class AutoScheduler {
           color,
           hours,
           start_time,
-          end_time,
-          min_staff,
-          max_staff,
-          required_roles,
-          is_night,
-          coverage_priority,
-          shift_difficulty
+          end_time
         FROM shifts
-        ORDER BY coverage_priority DESC, name
+        ORDER BY name
       `);
 
       this.shifts = shiftsResult.rows.map((row: any) => ({
@@ -389,32 +383,29 @@ export class AutoScheduler {
         hours: row.hours,
         startTime: row.start_time,
         endTime: row.end_time,
-        minStaff: row.min_staff || 1,
-        maxStaff: row.max_staff || 10,
-        requiredRoles: row.required_roles || [],
-        isNight: row.is_night || false,
-        coveragePriority: row.coverage_priority || 1,
-        shiftDifficulty: row.shift_difficulty || 1.0
+        minStaff: 1, // Default values
+        maxStaff: 10, // Default values
+        requiredRoles: [], // Default empty array
+        isNight: row.name && (row.name.toLowerCase().includes('ночь') || row.name.toLowerCase().includes('night')),
+        coveragePriority: 1,
+        shiftDifficulty: 1.0
       }));
 
       // Load validation rules
       const rulesResult = await pool.query(`
         SELECT
-          vr.id,
-          vr.rule_type,
-          vr.enabled,
-          vr.config,
-          vr.enforcement_type,
-          vr.priority,
-          vr.applies_to_roles,
-          vr.applies_to_employees,
-          vr.description,
-          rp.priority_level,
-          rp.weight_factor
-        FROM validation_rules vr
-        LEFT JOIN rule_priorities rp ON vr.id = rp.rule_id
-        WHERE vr.enabled = true
-        ORDER BY COALESCE(rp.priority_level, vr.priority)
+          id,
+          rule_type,
+          enabled,
+          config,
+          enforcement_type,
+          priority,
+          applies_to_roles,
+          applies_to_employees,
+          description
+        FROM validation_rules
+        WHERE enabled = true
+        ORDER BY priority
       `);
 
       this.validationRules = rulesResult.rows.map((row: any) => ({
@@ -422,8 +413,8 @@ export class AutoScheduler {
         ruleType: row.rule_type,
         enabled: row.enabled,
         config: row.config,
-        enforcementType: row.enforcement_type,
-        priority: row.priority_level || row.priority,
+        enforcementType: row.enforcement_type || 'warning',
+        priority: row.priority,
         appliesToRoles: row.applies_to_roles || [],
         appliesToEmployees: row.applies_to_employees || [],
         description: row.description
@@ -902,6 +893,21 @@ export class AutoScheduler {
       case 'max_hours_per_week':
         violations.push(...this.validateMaxHoursPerWeek(rule, schedule, month, year));
         break;
+      case 'approved_day_off_requests':
+        violations.push(...this.validateApprovedDayOffRequests(rule, schedule, month, year));
+        break;
+      case 'min_rest_between_shifts':
+        violations.push(...this.validateMinRestBetweenShifts(rule, schedule, month, year));
+        break;
+      case 'required_roles_per_shift':
+        violations.push(...this.validateRequiredRolesPerShift(rule, schedule, month, year));
+        break;
+      case 'max_shifts_per_week':
+        violations.push(...this.validateMaxShiftsPerWeek(rule, schedule, month, year));
+        break;
+      case 'max_hours_per_month':
+        violations.push(...this.validateMaxHoursPerMonth(rule, schedule, month, year));
+        break;
       // Add more rule validations as needed
       default:
         console.warn(`Unknown rule type: ${rule.ruleType}`);
@@ -1083,6 +1089,218 @@ export class AutoScheduler {
     }
 
     return violations;
+  }
+
+  private validateApprovedDayOffRequests(
+    rule: ValidationRule,
+    schedule: ScheduleEntry[],
+    month: number,
+    year: number
+  ): RuleViolation[] {
+    const violations: RuleViolation[] = [];
+
+    for (const employee of this.employees) {
+      for (const preference of employee.preferences) {
+        if (preference.preferenceType !== 'day_off') continue;
+
+        const prefDate = new Date(preference.targetDate);
+        if (prefDate.getMonth() !== month || prefDate.getFullYear() !== year) continue;
+
+        const day = prefDate.getDate();
+        const hasDayOff = schedule.some(s =>
+          s.employeeId === employee.id &&
+          s.day === day &&
+          s.shiftId === 'Выходной'
+        );
+
+        if (!hasDayOff) {
+          violations.push({
+            ruleType: rule.ruleType,
+            severity: rule.enforcementType,
+            employeeId: employee.id,
+            day,
+            message: `${employee.name} должен иметь выходной ${day} числа (утвержденная заявка)`,
+            priority: rule.priority
+          });
+        }
+      }
+    }
+
+    return violations;
+  }
+
+  private validateMinRestBetweenShifts(
+    rule: ValidationRule,
+    schedule: ScheduleEntry[],
+    month: number,
+    year: number
+  ): RuleViolation[] {
+    const violations: RuleViolation[] = [];
+    const minRestHours = rule.config.hours || 12;
+
+    for (const employee of this.employees) {
+      const employeeSchedule = schedule
+        .filter(s => s.employeeId === employee.id && s.shiftId !== 'Выходной')
+        .sort((a, b) => a.day - b.day);
+
+      for (let i = 0; i < employeeSchedule.length - 1; i++) {
+        const currentShift = employeeSchedule[i];
+        const nextShift = employeeSchedule[i + 1];
+
+        if (currentShift.day + 1 !== nextShift.day) continue; // Not consecutive days
+
+        const currentShiftObj = this.shifts.find(s => s.id === currentShift.shiftId);
+        const nextShiftObj = this.shifts.find(s => s.id === nextShift.shiftId);
+
+        if (!currentShiftObj?.endTime || !nextShiftObj?.startTime) continue;
+
+        // Parse times
+        const currentEndTime = this.parseTime(currentShiftObj.endTime);
+        const nextStartTime = this.parseTime(nextShiftObj.startTime);
+
+        // Calculate rest hours
+        const restHours = currentEndTime < nextStartTime
+          ? nextStartTime - currentEndTime
+          : (24 - currentEndTime) + nextStartTime;
+
+        if (restHours < minRestHours) {
+          violations.push({
+            ruleType: rule.ruleType,
+            severity: rule.enforcementType,
+            employeeId: employee.id,
+            day: nextShift.day,
+            message: `${employee.name} имеет только ${restHours}ч отдыха между сменами, минимум ${minRestHours}ч`,
+            priority: rule.priority
+          });
+        }
+      }
+    }
+
+    return violations;
+  }
+
+  private validateRequiredRolesPerShift(
+    rule: ValidationRule,
+    schedule: ScheduleEntry[],
+    month: number,
+    year: number
+  ): RuleViolation[] {
+    const violations: RuleViolation[] = [];
+    const requiredRole = rule.config.role;
+    const minCount = rule.config.min_count || 1;
+
+    if (!requiredRole) return violations;
+
+    // Check each day/shift combination
+    for (let day = 1; day <= this.daysInMonth; day++) {
+      for (const shift of this.shifts) {
+        if (shift.id === 'Выходной') continue;
+
+        const dayShiftEmployees = schedule.filter(s =>
+          s.day === day && s.shiftId === shift.id
+        );
+
+        const employeesWithRole = dayShiftEmployees.filter(s => {
+          const employee = this.employees.find(e => e.id === s.employeeId);
+          return employee?.roleName === requiredRole;
+        });
+
+        if (employeesWithRole.length < minCount) {
+          violations.push({
+            ruleType: rule.ruleType,
+            severity: rule.enforcementType,
+            day,
+            shiftId: shift.id,
+            message: `Смена "${shift.name}" ${day} числа требует минимум ${minCount} сотрудника(ов) с ролью "${requiredRole}"`,
+            priority: rule.priority
+          });
+        }
+      }
+    }
+
+    return violations;
+  }
+
+  private validateMaxShiftsPerWeek(
+    rule: ValidationRule,
+    schedule: ScheduleEntry[],
+    month: number,
+    year: number
+  ): RuleViolation[] {
+    const violations: RuleViolation[] = [];
+    const maxShifts = rule.config.max || 5;
+
+    for (const employee of this.employees) {
+      const employeeSchedule = schedule.filter(s =>
+        s.employeeId === employee.id && s.shiftId !== 'Выходной'
+      );
+
+      // Group by weeks
+      const weeklyShifts = new Map<number, number>();
+
+      for (const entry of employeeSchedule) {
+        const date = new Date(year, month, entry.day);
+        const weekStart = new Date(date.setDate(date.getDate() - date.getDay()));
+        const weekKey = weekStart.getTime();
+
+        weeklyShifts.set(weekKey, (weeklyShifts.get(weekKey) || 0) + 1);
+      }
+
+      // Check each week
+      for (const [weekKey, shifts] of weeklyShifts) {
+        if (shifts > maxShifts) {
+          violations.push({
+            ruleType: rule.ruleType,
+            severity: rule.enforcementType,
+            employeeId: employee.id,
+            message: `${employee.name} работает ${shifts} смен в неделю, максимум разрешено ${maxShifts}`,
+            priority: rule.priority
+          });
+        }
+      }
+    }
+
+    return violations;
+  }
+
+  private validateMaxHoursPerMonth(
+    rule: ValidationRule,
+    schedule: ScheduleEntry[],
+    month: number,
+    year: number
+  ): RuleViolation[] {
+    const violations: RuleViolation[] = [];
+    const maxHours = rule.config.max_hours || 160;
+
+    for (const employee of this.employees) {
+      const employeeSchedule = schedule.filter(s =>
+        s.employeeId === employee.id && s.shiftId !== 'Выходной'
+      );
+
+      let totalHours = 0;
+      for (const entry of employeeSchedule) {
+        const shift = this.shifts.find(s => s.id === entry.shiftId);
+        totalHours += shift?.hours || 0;
+      }
+
+      if (totalHours > maxHours) {
+        violations.push({
+          ruleType: rule.ruleType,
+          severity: rule.enforcementType,
+          employeeId: employee.id,
+          message: `${employee.name} работает ${totalHours} часов в месяц, максимум разрешено ${maxHours}`,
+          priority: rule.priority
+        });
+      }
+    }
+
+    return violations;
+  }
+
+  private parseTime(timeStr: string): number {
+    if (!timeStr) return 0;
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return hours + (minutes || 0) / 60;
   }
 
   private calculateScheduleMetrics(

@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Save, Plus, Trash2, Database, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Trash2, Database, AlertTriangle, Settings as SettingsIcon } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
 import DraggableList from '../components/DraggableList';
 import { ShiftManager } from '../components/ShiftManager';
 import { PreferenceReasonModal } from '../components/PreferenceReasonModal';
+import ValidationRulesManager from '../ValidationRulesManager';
 import { preferenceReasonsApi, settingsApi, shiftsApi, databaseApi } from '../services/api';
 import type { PreferenceReason, Shift } from '../types';
 
-type Tab = 'general' | 'shifts' | 'reasons' | 'database';
+type Tab = 'general' | 'shifts' | 'reasons' | 'validation' | 'database';
 
 
 export default function Settings() {
@@ -23,6 +24,7 @@ export default function Settings() {
   const [editingReason, setEditingReason] = useState<PreferenceReason | null>(null);
   const [dbStats, setDbStats] = useState<any>(null);
   const [isClearingDb, setIsClearingDb] = useState(false);
+  const [validationRulesOpen, setValidationRulesOpen] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -237,7 +239,8 @@ export default function Settings() {
           {[
             { id: 'general', label: 'Общие' },
             { id: 'shifts', label: 'Часы работы и смены' },
-                        { id: 'reasons', label: 'Причины запросов' },
+            { id: 'reasons', label: 'Причины запросов' },
+            { id: 'validation', label: 'Правила валидации' },
             { id: 'database', label: 'База данных' },
           ].map(({ id, label }) => (
             <button
@@ -380,6 +383,53 @@ export default function Settings() {
               </div>
             )}
 
+            {tab === 'validation' && (
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 md:mb-4 gap-3">
+                  <h2 className="text-lg md:text-xl font-bold text-gray-900 dark:text-gray-100">
+                    Правила валидации графика
+                  </h2>
+                  <button
+                    onClick={() => setValidationRulesOpen(true)}
+                    className="flex items-center gap-2 px-3 md:px-4 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors text-sm md:text-base w-full sm:w-auto"
+                  >
+                    <SettingsIcon className="w-4 h-4 md:w-5 md:h-5" />
+                    <span className="hidden sm:inline">Управлять правилами</span>
+                    <span className="sm:hidden">Правила</span>
+                  </button>
+                </div>
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                  <h3 className="font-medium text-blue-900 dark:text-blue-100 mb-2 flex items-center gap-2">
+                    <SettingsIcon className="w-5 h-5" />
+                    Что такое правила валидации?
+                  </h3>
+                  <p className="text-sm text-blue-800 dark:text-blue-200 mb-3">
+                    Правила валидации автоматически проверяют график на соответствие заданным ограничениям и требованиям.
+                    Они помогают поддерживать качество графика и предотвращать ошибки при планировании.
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="bg-white dark:bg-gray-800 rounded p-3 border border-blue-200 dark:border-blue-700">
+                      <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-1">⚠️ Предупреждения</h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Нежелательные, но допустимые ситуации (например, переработка)
+                      </p>
+                    </div>
+                    <div className="bg-white dark:bg-gray-800 rounded p-3 border border-red-200 dark:border-red-700">
+                      <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-1">❌ Ошибки</h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Критические нарушения, которые должны быть исправлены (например, нехватка персонала)
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    💡 <strong>Совет:</strong> Нажмите "Управлять правилами", чтобы создать, редактировать или настроить правила валидации под ваши нужды.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {tab === 'database' && (
               <div className="space-y-4 md:space-y-6">
                 {/* Database Statistics */}
@@ -493,6 +543,12 @@ export default function Settings() {
           }}
         />
       )}
+
+      {/* Validation Rules Modal */}
+      <ValidationRulesManager
+        isOpen={validationRulesOpen}
+        onClose={() => setValidationRulesOpen(false)}
+      />
     </div>
   );
 }

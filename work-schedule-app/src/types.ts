@@ -118,3 +118,57 @@ export interface EmployeePreferenceInput {
   notes?: string;
 }
 
+// Правила валидации
+export type ValidationRuleType =
+  | 'max_consecutive_shifts'
+  | 'min_employees_per_shift'
+  | 'max_employees_per_shift'
+  | 'max_employees_per_shift_type'
+  | 'required_coverage'
+  | 'manager_requirements'
+  | 'max_total_hours'
+  | 'max_hours_without_managers'
+  | 'employee_hours_limit'
+  | 'recommended_work_days'
+  | 'required_work_days'
+  | 'coverage_by_time'
+  | 'coverage_by_day'
+  | 'shift_type_limit_per_day'
+  | 'max_consecutive_work_days'
+  | 'max_consecutive_days_off'
+  | 'employee_day_off'
+  | 'approved_day_off_requests'
+  | 'min_rest_between_shifts'
+  | 'required_roles_per_shift'
+  | 'max_shifts_per_week'
+  | 'max_hours_per_week'
+  | 'max_hours_per_month';
+
+export type EnforcementType = 'warning' | 'error' | 'info';
+
+export interface ValidationRule {
+  id: number;
+  ruleType: ValidationRuleType;
+  enabled: boolean;
+  config: Record<string, any> | undefined; // JSON object
+  appliesToRoles?: EmployeeRole[];
+  appliesToEmployees?: string[]; // Array of employee IDs
+  enforcementType?: EnforcementType;
+  customMessage?: string;
+  priority: number;
+  description?: string;
+  created_at?: Date;
+  updated_at?: Date;
+}
+
+export interface ValidationRuleInput {
+  ruleType: ValidationRuleType;
+  enabled: boolean;
+  config: Record<string, any>;
+  appliesToRoles?: EmployeeRole[];
+  appliesToEmployees?: string[];
+  enforcementType?: EnforcementType;
+  customMessage?: string;
+  priority?: number;
+  description?: string;
+}
